@@ -5,13 +5,8 @@ const protol: string = "http://"
 const hostname: string = "localhost"
 const port: string = ":3001"
 
-const term = new Terminal({
-  cursorBlink: true,
-  fontFamily: "fira-code",
-  //lineHeight: 1.2, //Idk it kinda just fixed itself?
-  //letterSpacing: 0,
-});
-const fitAddon = new FitAddon()
+let term: Terminal
+let fitAddon: FitAddon
 let commandBuffer = '';
 
 //TODO: Add command history... Idk even where to start tho
@@ -187,6 +182,13 @@ function setupKeyHandle() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  term = new Terminal({
+    cursorBlink: true,
+    fontFamily: "fira-code",
+    //lineHeight: 1.2, //Idk it kinda just fixed itself?
+    //letterSpacing: 0,
+  });
+  fitAddon = new FitAddon();
   setupTerminal();
   setupKeyHandle();
 })
