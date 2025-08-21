@@ -1,6 +1,9 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ImageAddon } from '@xterm/addon-image';
+interface PyodideInterface {
+  runPython: (code: string) => any;
+}
 
 const protol: string = "http://"
 const hostname: string = "localhost"
@@ -11,6 +14,9 @@ let fitAddon: FitAddon
 let imageAddon: ImageAddon
 let commandBuffer = '';
 
+let pyodide: PyodideInterface
+let pythonInitialised: boolean = false;
+
 type NodeType = 'dir' | 'file' | 'image';
 
 interface FileNode {
@@ -19,6 +25,23 @@ interface FileNode {
   children?: FileNode[];
   content?: string;
 }
+
+async function initPython() {
+	pyodide = await (window as any).loadPyodide();
+  pythonInitialised = true
+}
+
+async function runPython(code: string): Promise<string> {
+  try {
+    let result = pyodide.runPython(code)
+    return String(result)    
+  } catch (err) {
+    return String(err)
+  }
+
+}
+
+
 
 let fileSystem: FileNode = {
   name: '/',
@@ -29,6 +52,11 @@ let fileSystem: FileNode = {
         { name: 'Downloads', type: 'dir', children: [
           { name: 'readme.md', type: 'file', content: "Hello, if you can read this then awesome!"},
           { name: 'elot.png', type: 'image', content: "/images/Elot.png"},
+          { name: 'fun.py', type: 'file', content: `
+output = ""
+for e in range(10):
+    output += str(e) + "\\n"
+output`},
         ] },
         { name: 'Pictures', type: 'dir', children: [] },
         { name: 'Documents', type: 'dir', children: [] },
@@ -200,10 +228,9 @@ async function processCommand(cmd: string) {
     commandTmp += " " + e
   }
   commandHistory.push(commandTmp);
-  console.log(commandHistory)
   switch (command) {
     case 'help':
-      term.writeln('Available commands: help, echo, paste, kanye, cowsay, elot, joke and ping\r\nI recommnd using ping to test if the server is working!');
+      term.writeln('Available commands: help, echo, w3m, touch, cat, mkdir, rmdir, cd, python, paste, kanye, cowsay, elot, joke and ping\r\nI recommnd using ping to test if the server is working!');
       break;
     
     case 'clear':
@@ -374,6 +401,36 @@ async function processCommand(cmd: string) {
 
       break;
 
+    case 'python':
+      if (!pythonInitialised) {
+        await initPython();
+      }
+      if (args[0] == "-c") {
+        const output = await runPython(args[1]);
+        if (output && output != "undefined") {
+          term.writeln(output);
+        } else {
+          term.writeln("No return output. Your code ran successfully tho!")
+        }
+
+        break;
+      }
+      if (true) {
+        const fileName = args[0];
+        const filePath = currentPath + fileName;
+        const file = findNode(filePath);
+
+        if (file && file.type === 'file') {
+          const output = await runPython(file.content || `output="Python code failed."`);
+          term.writeln(output);
+        } else {
+          term.writeln(`File not found: ${fileName}`)
+        }
+
+      }
+
+      break;
+
     case 'w3m':
       if (true) {
         const fileName = args[0];
@@ -494,7 +551,7 @@ function setupKeyHandle() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   term = new Terminal({
     convertEol: true,
     cursorBlink: true,
@@ -504,6 +561,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   fitAddon = new FitAddon();
   imageAddon = new ImageAddon();
+  
   setupTerminal();
   setupKeyHandle();
+  
 })
