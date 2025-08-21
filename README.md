@@ -20,23 +20,23 @@ Display images and videos (maybe) inside the CLI!
 The following features are planned or under consideration:
 
 - **API Requests**
-    - Personal APIs
+    - [x] Personal APIs
         - [x] Rustful
-        - [ ] Flikhost (potentially)
-    - External APIs
-        - [ ] Cowsay
-        - [ ] Kanye.rest
-        - [ ] Generic joke API
-        - [ ] Translations
+        - [x] Flikhost (potentially)
+    - [x] External APIs
+        - [x] Cowsay
+        - [x] Kanye.rest
+        - [x] Generic joke API
+        ~~- [ ] Translations~~ (Google bein a beotch)
         - [ ] Additional APIs
 - **Directory Management**
     - [ ] Base directory support
     - [ ] Directory exploration
     - [ ] Path handling
 - **Command History**
-    - [ ] Persistent and searchable command history
+    - [x] Persistent and searchable command history
 - **Graphical Support**
-    - [ ] Visual enhancements and graphical output for supported commands
+    - [x] Visual enhancements and graphical output for supported commands
 - **Games**
     - [ ] Terminal-based games (under consideration)
 

@@ -1,5 +1,6 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { ImageAddon } from '@xterm/addon-image';
 
 const protol: string = "http://"
 const hostname: string = "localhost"
@@ -7,6 +8,7 @@ const port: string = ":3001"
 
 let term: Terminal
 let fitAddon: FitAddon
+let imageAddon: ImageAddon
 let commandBuffer = '';
 
 //TODO: Add command history... Idk even where to start tho
@@ -14,6 +16,32 @@ let commandBuffer = '';
 
 let currentCommand: number = 0
 let commandHistory: string[] = ["none"]
+
+async function loadImage(term: Terminal, url: string) {
+  const resp = await fetch(url);
+
+  if (!resp || !resp.ok) {
+    return
+  }
+
+  const blob = await resp.blob();
+
+  const arrayBuffer = await blob.arrayBuffer();
+	let binary = '';
+	const bytes = new Uint8Array(arrayBuffer);
+	const len = bytes.byteLength;
+	for (let i = 0; i < len; i++) {
+		binary += String.fromCharCode(bytes[i]);
+	}
+
+  const base64Data = btoa(binary)
+
+  const size = blob.size;
+
+  const iip = `\x1b]1337;File=inline=1;size=${size}:${base64Data}\x07`;
+
+  term.writeln(iip);
+}
 
 async function sendCommandToServer(cmd: string, ...args: string[]) {
   try {
@@ -153,9 +181,49 @@ async function processCommand(cmd: string) {
       else {
         term.writeln("Invalid argument, use paste -h or --help to see available options");
       }
-
       break;
     
+    case 'cowsay':
+      if (true) {
+        const data = await sendCommandToServer('cowsay', args[0]);
+      
+        const lines = data.split("\n");
+        const width = Math.max(...lines.map((l: string) => l.length));
+
+        let output = " " + "_".repeat(width + 2) + "\n";
+
+        for (const line of lines) {
+          output += `< ${line.padEnd(width, " ")} >\n`;
+        }
+
+        output += " " + "-".repeat(width + 2) + "\n";
+
+        term.writeln(output);
+      }
+      break;
+
+    case 'kanye':
+      if (true){
+        const data = await sendCommandToServer('kanye');
+
+        term.writeln(data);
+      }
+
+      break;
+
+    case 'elot':
+      await loadImage(term, '/images/Elot.png');
+      break;
+
+    case 'joke':
+      if (true){
+        const data = await sendCommandToServer('joke')
+
+        term.writeln(data);
+      }
+
+      break;
+
     case '':
       break;
     
@@ -165,13 +233,13 @@ async function processCommand(cmd: string) {
   }
 }
 
-function setupTerminal() {
+async function setupTerminal() {
   const termContainer = document.getElementById('terminal') as HTMLElement || null;
   term.loadAddon(fitAddon); 
+  term.loadAddon(imageAddon);
   term.open(termContainer);
   fitAddon.fit();
-  term.writeln('Welcome to xterm clivis V0.1!');
-
+  term.writeln('Welcome to xterm clivis V0.1! Type "help" to get started!');
   term.write('$ ');
 }
 
@@ -219,12 +287,14 @@ function setupKeyHandle() {
 
 document.addEventListener('DOMContentLoaded', () => {
   term = new Terminal({
+    convertEol: true,
     cursorBlink: true,
     fontFamily: "fira-code",
     //lineHeight: 1.2, //Idk it kinda just fixed itself?
     //letterSpacing: 0,
   });
   fitAddon = new FitAddon();
+  imageAddon = new ImageAddon();
   setupTerminal();
   setupKeyHandle();
 })

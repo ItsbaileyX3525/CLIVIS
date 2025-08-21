@@ -13,7 +13,7 @@ const port = 3001;
 
 app.use(express.static(path.join(__dirname, '../dist')));
 
-async function sendRequest(url, method = "GET", ...args) {
+async function sendRequestRustful(url, method = "GET", ...args) {
   method = method.toUpperCase();
   try {
     const options = {
@@ -62,7 +62,8 @@ app.post('/command', async (req, res) => {
   if (!command) return res.status(400).json({ error: 'Not a valid command !!!' });
   
   const args = req.body?.args ?? req.query?.args;
-
+  let data
+  let response
   let output = '';
   let resp
   let rustful = "https://rustful.baileygamesand.codes"
@@ -72,7 +73,7 @@ app.post('/command', async (req, res) => {
       break;
     
     case 'pasteRetrieve':
-      resp = await sendRequest(`${rustful}/paste/${args[0]}`);
+      resp = await sendRequestRustful(`${rustful}/paste/${args[0]}`);
       if (resp[0]) {
         output = resp[1].text;
       } else {
@@ -82,7 +83,7 @@ app.post('/command', async (req, res) => {
       break;
 
     case 'pasteUpload':
-      resp = await sendRequest(`${rustful}/paste`, "POST", args[0])
+      resp = await sendRequestRustful(`${rustful}/paste`, "POST", args[0])
       if (resp[0]) {
         output = `Paste uploaded successfully, paste code: ${resp[1].code}`
       } else {
@@ -91,7 +92,7 @@ app.post('/command', async (req, res) => {
       break;
     
     case 'pasteDelete':
-      resp = await sendRequest(`${rustful}/paste/${args[0]}`, "DELETE")
+      resp = await sendRequestRustful(`${rustful}/paste/${args[0]}`, "DELETE")
       if (resp[0]) {
         output = "paste successfully deleted!"
       } else {
@@ -100,7 +101,7 @@ app.post('/command', async (req, res) => {
       break;
 
     case 'randomQuote':
-      resp = await sendRequest(`${rustful}/quote`)
+      resp = await sendRequestRustful(`${rustful}/quote`)
       if (resp[0]) {
         output = `Quote: ${resp[1].text}\r\nSpeaker: ${resp[1].speaker}`
       } else {
@@ -109,7 +110,7 @@ app.post('/command', async (req, res) => {
       break;
     
     case 'uploadQuote':
-      resp = await sendRequest(`${rustful}/quotes`, "POST", args[0], args[1])
+      resp = await sendRequestRustful(`${rustful}/quotes`, "POST", args[0], args[1])
       if (resp[0]) {
         output = `Quote uploaded successfully, quote id: ${resp[1].id}`
       } else {
@@ -119,13 +120,53 @@ app.post('/command', async (req, res) => {
       break;
 
     case 'idQuote':
-      resp = await sendRequest(`${rustful}/quotes/${args[0]}`);
+      resp = await sendRequestRustful(`${rustful}/quotes/${args[0]}`);
       if (resp[0]) {
         output = `Quote: ${resp[1].text}\r\nSpeaker: ${resp[1].speaker}`
       } else {
         output = resp[1];
       }
       break;
+    case 'cowsay':
+      response = await fetch(`https://cowsay.morecode.org/say?message=${encodeURI(args[0])}&format=json`)
+      
+      if (!response || !response.ok) {
+        output = "Something failed fetching cowsay :<";
+        break;
+      }
+
+      data = await response.json();
+
+      output = data.cow;
+      break;
+
+    case 'kanye':
+      response = await fetch("https://api.kanye.rest");
+
+      if (!response || !response.ok) {
+        output = "Failed fetching kanye.rest API >:(";
+        return;
+      }
+
+      data = await response.json();
+
+      output = data.quote;
+
+      break;
+
+    case 'joke':
+      response = await fetch("https://api.flik.host/joke")
+
+      if (!response || !response.ok) {
+        output = "Flikhost Failed! Angry face!";
+        return;
+      }
+
+      data = await response.json()
+
+      output = `${data.Question}\n${data.Answer}`
+      break;
+
     default:
       output = `Unknown command: ${command} :<`;
   }
