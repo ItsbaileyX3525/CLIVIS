@@ -21,7 +21,7 @@ async function sendCommandToServer(cmd: string, ...args: string[]) {
     const response = await fetch(protol+hostname+port+"/command", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json '},
-      body: JSON.stringify({ command: cmd, arg: args[0] }),
+      body: JSON.stringify({ command: cmd, args: args }),
     });
 
     const data = await response.json();
@@ -84,12 +84,36 @@ async function processCommand(cmd: string) {
       if (args.join(' ').trim().length > 0){
         term.writeln(args.join(' '));
       } else {
-        term.writeln("Echo with arguments")
+        term.writeln("Echo with arguments");
       }
       break;
     
+    case 'quote':
+      if (args[0] === '-r' || args[0] === '--random') {
+        const data = await sendCommandToServer('randomQuote');
+
+        term.writeln(data);
+      }
+      else if (args[0] === "-u" || args[0] === '--upload'){
+        const data = await sendCommandToServer('uploadQuote', args[1], args[2]);
+        
+        term.writeln(data);
+      }
+      else if (args[0] === '-i') {
+        const data = await sendCommandToServer('idQuote', args[1]);
+
+        term.writeln(data);
+      }
+      else if (args[0] === '-h' || args[0] === '--help') {
+        term.writeln('-r, --random    Get a random quote\r\n-u, --upload    Upload your own quote, example: quote -u "quote" "speaker"\r\n-i    Retrieve a quote by ID');
+      }
+      else {
+        term.writeln("Invalid argument, use quote -h or --help to see available options");
+      }
+      break;
+
     case 'paste':
-      if (args[0] === '-r') {
+      if (args[0] === '-r' || args[0] === '--retrieve') {
         if (args[1].trim()) {
           const data = await sendCommandToServer("pasteRetrieve", args[1])
 
@@ -99,21 +123,26 @@ async function processCommand(cmd: string) {
           term.writeln("please add an ID")
         }
       } 
-      else if (args[0] === '-u') {
+      else if (args[0] === '-u' || args[0] === '--upload') {
         if (args[1].trim()) {
           const data = await sendCommandToServer("pasteUpload",args[1])
 
-          term.writeln(data)
+          term.writeln(data);
         }
         else {
-          term.writeln("Add some text to upload!")
+          term.writeln("Add some text to upload!");
         }
-      } 
-      else if (args[0] === '-h'){
-        term.writeln('-u "args"  Upload your paste\r\n-r "id"   Retrieve your paste')
+      }
+      else if (args[0] === '-d' || args[0] === '--delete') {
+        const data = await sendCommandToServer("pasteDelete", args[1])
+
+        term.writeln(data);
+      }
+      else if (args[0] === '-h' || args[0] === '--help'){
+        term.writeln('-u, --upload "args"  Upload your paste\r\n-r, --retrieve "id"   Retrieve your paste\r\n-d, --delete "id"   Delete your paste');
       } 
       else {
-        term.writeln("Invalid argument, use paste -h to see available options")
+        term.writeln("Invalid argument, use paste -h or --help to see available options");
       }
 
       break;

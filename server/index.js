@@ -13,6 +13,47 @@ const port = 3001;
 
 app.use(express.static(path.join(__dirname, '../dist')));
 
+async function sendRequest(url, method = "GET", ...args) {
+  method = method.toUpperCase();
+  try {
+    const options = {
+      method,
+      headers: {
+        'accept': 'application/json'
+      }
+    };
+
+    if (method === 'POST') {
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify({
+        text: args[0],
+        speaker: args[1]
+      });
+    }
+
+    const response = await fetch(url, options);
+
+    if (!response || !response.ok) {
+      if (response.status === 404) {
+        return [false, "404 - Not Found"]
+      }
+      console.log("Response not ok:", response);
+      return [false, "Something failed with the API."];
+    }
+
+    if (method == "DELETE") {
+      return [true]
+    }
+
+    const data = await response.json();
+
+    return [true, data];
+  } catch (err) {
+    console.log("Fetch failed:",err);
+    return [false, "Error fetching paste, API connection failed :<"];
+  }
+}
+
 app.post('/command', async (req, res) => {
   const command = req.body?.command ?? req.query?.command;
   if (command === undefined) {
@@ -20,58 +61,71 @@ app.post('/command', async (req, res) => {
   }
   if (!command) return res.status(400).json({ error: 'Not a valid command !!!' });
   
-  const arg = req.body?.arg ?? req.query?.arg;
+  const args = req.body?.args ?? req.query?.args;
 
   let output = '';
+  let resp
+  let rustful = "https://rustful.baileygamesand.codes"
   switch (command.trim()) {
     case 'ping':
       output = 'No pong for you. (ping worked)';
       break;
+    
     case 'pasteRetrieve':
-      try {
-        const response = await fetch(`https://rustful.baileygamesand.codes/paste/${arg}`);
-        
-        if (!response || !response.ok) {
-          output = "Something failed with the API.";
-          break;
-        }
-
-        const data = await response.json();
-
-        output = data.text;
-      } catch (err) {
-        console.log(err)
-        output = "Error fetching paste, API connection failed :<";
+      resp = await sendRequest(`${rustful}/paste/${args[0]}`);
+      if (resp[0]) {
+        output = resp[1].text;
+      } else {
+        output = resp[1];
       }
+      
       break;
 
     case 'pasteUpload':
-      try {
-        const response = await fetch('https://rustful.baileygamesand.codes/paste', {
-          method: 'POST',
-          headers: {
-            'accept': 'application/json',
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            text: arg
-          })
-        })
-
-        if (!response || !response.ok) {
-          console.log(response)
-          output = "Something failed with the API.";
-          break;
-        }
-
-        const data = await response.json();
-
-        output = `Paste uploaded successfully! Paste code: ${data.code}`
-      } catch (err) {
-        output = "Error fetching paste, API connection failed :<";
+      resp = await sendRequest(`${rustful}/paste`, "POST", args[0])
+      if (resp[0]) {
+        output = `Paste uploaded successfully, paste code: ${resp[1].code}`
+      } else {
+        output = resp[1];
       }
       break;
+    
+    case 'pasteDelete':
+      resp = await sendRequest(`${rustful}/paste/${args[0]}`, "DELETE")
+      if (resp[0]) {
+        output = "paste successfully deleted!"
+      } else {
+        output = `Failed to delete paste.\r\n${resp[1]}\r\nIf the error is 404 that means the paste doesn't exist or already deleted!`
+      }
+      break;
+
+    case 'randomQuote':
+      resp = await sendRequest(`${rustful}/quote`)
+      if (resp[0]) {
+        output = `Quote: ${resp[1].text}\r\nSpeaker: ${resp[1].speaker}`
+      } else {
+        output = resp[1]
+      }
+      break;
+    
+    case 'uploadQuote':
+      resp = await sendRequest(`${rustful}/quotes`, "POST", args[0], args[1])
+      if (resp[0]) {
+        output = `Quote uploaded successfully, quote id: ${resp[1].id}`
+      } else {
+        output = resp[1]
+      }
       
+      break;
+
+    case 'idQuote':
+      resp = await sendRequest(`${rustful}/quotes/${args[0]}`);
+      if (resp[0]) {
+        output = `Quote: ${resp[1].text}\r\nSpeaker: ${resp[1].speaker}`
+      } else {
+        output = resp[1];
+      }
+      break;
     default:
       output = `Unknown command: ${command} :<`;
   }
