@@ -1,0 +1,22 @@
+{
+  "name": "jarvis-terminal",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "server": "npm run build && node server/index.js"
+  },
+  "devDependencies": {
+    "typescript": "5.9.2",
+    "vite": "^7.1.2"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.1.12",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "tailwindcss": "^4.1.12"
+  }
+}
