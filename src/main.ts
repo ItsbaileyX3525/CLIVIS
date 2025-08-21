@@ -10,6 +10,10 @@ let fitAddon: FitAddon
 let commandBuffer = '';
 
 //TODO: Add command history... Idk even where to start tho
+// Apprently really easy..
+
+let currentCommand: number = 0
+let commandHistory: string[] = ["none"]
 
 async function sendCommandToServer(cmd: string, ...args: string[]) {
   try {
@@ -29,6 +33,7 @@ async function sendCommandToServer(cmd: string, ...args: string[]) {
 
 async function processCommand(cmd: string) {
   function parseArgs(input: string): string[] {
+    currentCommand = 0;
     const tokens: string[] = [];
     let current = '';
     let inQuotes = false;
@@ -65,11 +70,20 @@ async function processCommand(cmd: string) {
 
   term.writeln("\r\n")
 
+  let commandTmp: string = command
+  for (let e of args) {
+    commandTmp += " " + e
+  }
+  commandHistory.push(commandTmp);
   switch (command) {
     case 'help':
       term.writeln('Available commands: help, echo, paste, ping\r\nI recommnd using ping to test if the server is working!');
       break;
     
+    case 'clear':
+      term.clear()
+      break;
+
     case 'ping':
       const data = await sendCommandToServer(command);
       term.writeln(data);
@@ -146,6 +160,7 @@ async function processCommand(cmd: string) {
       break;
     
     default:
+      commandHistory.pop();
       term.writeln(`Command not found: ${command}`)
   }
 }
@@ -161,12 +176,32 @@ function setupTerminal() {
 }
 
 function setupKeyHandle() {
+
   term.onKey(async ({ key, domEvent }) => {
     const printable  = !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
-
-    if (domEvent.key === 'Enter') {
+    if (domEvent.key === 'ArrowUp') {
+      if (currentCommand + 1 >= commandHistory.length ){
+        return;
+      }
+      currentCommand ++;
+      commandBuffer = "";
+      commandBuffer = commandHistory[currentCommand]
+      term.write('\x1b[2K\x1b[G$ ');
+      term.write(commandHistory[currentCommand])
+    } else if (domEvent.key === 'ArrowDown') {
+      if (currentCommand <= 1) {
+        currentCommand = 0
+        term.write('\x1b[2K\x1b[G$ ');
+        commandBuffer = ""
+        return;
+      }
+      currentCommand --;
+      commandBuffer = "";
+      term.write('\x1b[2K\x1b[G$ ');
+      commandBuffer = commandHistory[currentCommand]
+      term.write(commandHistory[currentCommand])
+    } else if (domEvent.key === 'Enter') {
       await processCommand(commandBuffer);
-      console.log("Processed command")
       commandBuffer = '';
       term.write('\r\n$ ');
     } else if (domEvent.key === 'Backspace') {
@@ -179,6 +214,7 @@ function setupKeyHandle() {
       term.write(key)
     }
   })
+
 }
 
 document.addEventListener('DOMContentLoaded', () => {
