@@ -30,15 +30,16 @@ The following features are planned or under consideration:
         ~~- [ ] Translations~~ (Google bein a beotch)
         - [ ] Additional APIs
 - **Directory Management**
-    - [ ] Base directory support
-    - [ ] Directory exploration
-    - [ ] Path handling
+    - [x] Base directory support
+    - [x] Directory exploration
+    - [x] Path handling
 - **Command History**
     - [x] Persistent and searchable command history
 - **Graphical Support**
     - [x] Visual enhancements and graphical output for supported commands
 - **Games**
     - [ ] Terminal-based games (under consideration)
+    - [ ] GUI-based games (maybe)
 
 ## Building locally
 

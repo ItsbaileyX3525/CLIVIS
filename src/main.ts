@@ -11,11 +11,97 @@ let fitAddon: FitAddon
 let imageAddon: ImageAddon
 let commandBuffer = '';
 
-//TODO: Add command history... Idk even where to start tho
+type NodeType = 'dir' | 'file';
+
+interface FileNode {
+  name: string;
+  type: NodeType;
+  children?: FileNode[];
+  content?: string;
+}
+
+let fileSystem: FileNode = {
+  name: '/',
+  type: 'dir',
+  children: [
+    { name: 'home', type: 'dir', children: [
+      { name: 'baile', type: 'dir', children: [
+        { name: 'Downloads', type: 'dir', children: [
+          { name: 'readme.md', type: 'file', content: "Hello, if you can read this then awesome!"}
+        ] },
+        { name: 'Pictures', type: 'dir', children: [] },
+        { name: 'Documents', type: 'dir', children: [] },
+      ]}
+    ] },
+    { name: 'etc', type: 'dir', children: [] }
+  ]
+}
+
+let currentPath = '/';
+
+//What the fuck does this even actually do?
+
+function findDir(path: string, fs: FileNode = fileSystem): FileNode | null {
+  const parts = path.split('/').filter(Boolean);
+  let current: FileNode = fs;
+
+  for (const part of parts) {
+    if (!current.children) return null;
+    const next = current.children.find(node => node.name === part && node.type === 'dir');
+    if (!next) return null;
+    current = next;
+  }
+
+  return current
+}
+
+function addDir(path: string, dirName: string): boolean {
+  const parent = findDir(path);
+  if (!parent || !parent.children) return false;
+
+  if (parent.children.some(node => node.name === dirName)) return false;
+
+  parent.children.push({ name: dirName, type: 'dir', children: [] })
+  return true;
+}
+
+function deleteDir(path: string): boolean {
+  const parts = path.split('/').filter(Boolean);
+  const dirName = parts.pop();
+  if (!dirName) return false;
+
+  const parent = findDir('/' + parts.join('/'));
+  if (!parent || !parent.children) return false;
+
+  parent.children = parent.children.filter(node => node.name !== dirName);
+  return true;  
+}
+
+function listDir(path: string): string {
+  const dir = findDir(path);
+  if (!dir || !dir.children) return '';
+  return dir.children.map(c => c.name).join(' ')
+}
+
+function findNode(path: string, fs: FileNode = fileSystem): FileNode | null {
+	const parts = path.split('/').filter(Boolean);
+	let current: FileNode = fs;
+
+	for (const part of parts) {
+		if (!current.children) return null;
+		const next = current.children.find(node => node.name === part);
+		if (!next) return null;
+		current = next;
+	}
+
+	return current;
+}
+
+//COMPLETE: Add command history... Idk even where to start tho
 // Apprently really easy..
 
 let currentCommand: number = 0
-let commandHistory: string[] = ["none"]
+let commandHistory: string[] = []
 
 async function loadImage(term: Terminal, url: string) {
   const resp = await fetch(url);
@@ -103,9 +189,10 @@ async function processCommand(cmd: string) {
     commandTmp += " " + e
   }
   commandHistory.push(commandTmp);
+  console.log(commandHistory)
   switch (command) {
     case 'help':
-      term.writeln('Available commands: help, echo, paste, ping\r\nI recommnd using ping to test if the server is working!');
+      term.writeln('Available commands: help, echo, paste, kanye, cowsay, elot, joke and ping\r\nI recommnd using ping to test if the server is working!');
       break;
     
     case 'clear':
@@ -183,6 +270,59 @@ async function processCommand(cmd: string) {
       }
       break;
     
+    case 'mkdir':
+      if (true) {
+        const dirName = args[0]
+        if (addDir(currentPath, dirName)) term.writeln(`Directory created: ${dirName}`);
+        else term.writeln(`Failed to create directory`);
+      }
+
+      break;
+  
+    case 'rmdir':
+      if (true) {
+        const dirName = args[0] 
+        if (deleteDir(`${currentPath}${dirName}`)) term.writeln(`Directory deleted: ${dirName}`);
+        else term.writeln(`Failed to delete directory`);
+      }
+
+      break;
+
+    case 'ls':
+      if (true) {
+        term.writeln(`\r\n${listDir(currentPath)}\r\n`);
+      }
+
+      break;
+
+    case 'cd':
+      const target = args[0];
+      const newDir = target === '..'
+        ? currentPath.split('/').slice(0, -2).join('/') + '/'
+        : target.startsWith('/') ? target : currentPath + target + '/';
+
+      if (findDir(newDir)) {
+        currentPath = newDir;
+        term.writeln(`Changed directory to ${currentPath}`);
+      } else {
+        term.writeln(`Directory not found`);
+      }
+
+      break;
+
+    case 'cat':
+      const fileName = args[0];
+      const filePath = currentPath + fileName;
+      const file = findNode(filePath);
+
+      if (file && file.type === 'file') {
+        term.writeln(file.content || 'No content');
+      } else {
+        term.writeln(`File not found: ${fileName}`)
+      }
+
+      break;
+
     case 'cowsay':
       if (true) {
         const data = await sendCommandToServer('cowsay', args[0]);
@@ -244,45 +384,48 @@ async function setupTerminal() {
 }
 
 function setupKeyHandle() {
-
   term.onKey(async ({ key, domEvent }) => {
-    const printable  = !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
+    const printable = !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
+
     if (domEvent.key === 'ArrowUp') {
-      if (currentCommand + 1 >= commandHistory.length ){
-        return;
+      if (commandHistory.length === 0) return;
+
+      if (currentCommand < commandHistory.length) {
+        currentCommand++;
       }
-      currentCommand ++;
-      commandBuffer = "";
-      commandBuffer = commandHistory[currentCommand]
-      term.write('\x1b[2K\x1b[G$ ');
-      term.write(commandHistory[currentCommand])
+
+      commandBuffer = commandHistory[commandHistory.length - currentCommand] || '';
+      term.write('\x1b[2K\x1b[G$ ' + commandBuffer);
+
     } else if (domEvent.key === 'ArrowDown') {
-      if (currentCommand <= 1) {
-        currentCommand = 0
-        term.write('\x1b[2K\x1b[G$ ');
-        commandBuffer = ""
-        return;
+      if (commandHistory.length === 0) return;
+
+      if (currentCommand > 0) {
+        currentCommand--;
+        commandBuffer = currentCommand === 0 ? '' : commandHistory[commandHistory.length - currentCommand];
       }
-      currentCommand --;
-      commandBuffer = "";
-      term.write('\x1b[2K\x1b[G$ ');
-      commandBuffer = commandHistory[currentCommand]
-      term.write(commandHistory[currentCommand])
+
+      term.write('\x1b[2K\x1b[G$ ' + commandBuffer);
+
     } else if (domEvent.key === 'Enter') {
-      await processCommand(commandBuffer);
+      if (commandBuffer.trim() !== '') {
+        await processCommand(commandBuffer);
+      }
       commandBuffer = '';
+      currentCommand = 0;
       term.write('\r\n$ ');
+
     } else if (domEvent.key === 'Backspace') {
       if (commandBuffer.length > 0) {
         commandBuffer = commandBuffer.slice(0, -1);
         term.write('\b \b');
       }
+
     } else if (printable && key.length === 1) {
       commandBuffer += key;
-      term.write(key)
+      term.write(key);
     }
-  })
-
+  });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
