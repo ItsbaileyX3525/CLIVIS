@@ -11,7 +11,7 @@ let fitAddon: FitAddon
 let imageAddon: ImageAddon
 let commandBuffer = '';
 
-type NodeType = 'dir' | 'file';
+type NodeType = 'dir' | 'file' | 'image';
 
 interface FileNode {
   name: string;
@@ -27,7 +27,8 @@ let fileSystem: FileNode = {
     { name: 'home', type: 'dir', children: [
       { name: 'baile', type: 'dir', children: [
         { name: 'Downloads', type: 'dir', children: [
-          { name: 'readme.md', type: 'file', content: "Hello, if you can read this then awesome!"}
+          { name: 'readme.md', type: 'file', content: "Hello, if you can read this then awesome!"},
+          { name: 'elot.png', type: 'image', content: "/images/Elot.png"},
         ] },
         { name: 'Pictures', type: 'dir', children: [] },
         { name: 'Documents', type: 'dir', children: [] },
@@ -83,6 +84,16 @@ function listDir(path: string): string {
   return dir.children.map(c => c.name).join(' ')
 }
 
+function addFile(path: string, fileName: string): boolean {
+  const parent = findDir(path);
+  if (!parent || !parent.children) return false;
+
+  if (parent.children.some(node => node.name === fileName)) return false;
+
+  parent.children.push({ name: fileName, type: 'file', content: "" })
+  return true;
+}
+
 function findNode(path: string, fs: FileNode = fileSystem): FileNode | null {
 	const parts = path.split('/').filter(Boolean);
 	let current: FileNode = fs;
@@ -103,7 +114,7 @@ function findNode(path: string, fs: FileNode = fileSystem): FileNode | null {
 let currentCommand: number = 0
 let commandHistory: string[] = []
 
-async function loadImage(term: Terminal, url: string) {
+async function loadImage(url: string) {
   const resp = await fetch(url);
 
   if (!resp || !resp.ok) {
@@ -205,11 +216,42 @@ async function processCommand(cmd: string) {
       break;
 
     case 'echo':
-      if (args.join(' ').trim().length > 0){
-        term.writeln(args.join(' '));
+      if (args[args.length - 2] == ">>") {
+        if (args[0] == ">>") {
+          term.writeln(`Please add some text to echo`)
+          return;
+        }
+        const fileName = args[args.length - 1];
+        const filePath = currentPath + fileName;
+        const file = findNode(filePath);
+        if (file && file.type === 'file') {
+          file.content += args[0]
+          term.writeln(args[0]);
+        } else {
+          term.writeln(`File not found: ${fileName}`)
+        }
+      } else if (args[args.length - 2] == ">") {
+        if (args[0] == ">") {
+          term.writeln(`Please add some text to echo`)
+          return;
+        }
+        const fileName = args[args.length - 1];
+        const filePath = currentPath + fileName;
+        const file = findNode(filePath);
+        if (file && file.type === 'file') {
+          file.content = args[0]
+          term.writeln(args[0]);
+        } else {
+          term.writeln(`File not found: ${fileName}`)
+        }
       } else {
-        term.writeln("Echo with arguments");
+        if (args[0].length > 0){
+          term.writeln(args.join(' '));
+        } else {
+          term.writeln("Please add some text to echo");
+        }        
       }
+
       break;
     
     case 'quote':
@@ -323,6 +365,30 @@ async function processCommand(cmd: string) {
 
       break;
 
+    case 'touch':
+      if (true) { //Love the hack
+        const fileName = args[0]
+        if (addFile(currentPath, fileName)) term.writeln(`File created: ${fileName}`);
+        else term.writeln(`Failed to create file!`);
+      }
+
+      break;
+
+    case 'w3m':
+      if (true) {
+        const fileName = args[0];
+        const filePath = currentPath + fileName;
+        const file = findNode(filePath);
+
+        if (file && file.type === 'image') {
+          await loadImage(file.content || '/images/scared_heidi.png')
+        } else {
+          term.writeln(`File not found: ${fileName}`)
+        }
+      }
+
+      break;
+
     case 'cowsay':
       if (true) {
         const data = await sendCommandToServer('cowsay', args[0]);
@@ -352,7 +418,7 @@ async function processCommand(cmd: string) {
       break;
 
     case 'elot':
-      await loadImage(term, '/images/Elot.png');
+      await loadImage('/images/Elot.png');
       break;
 
     case 'joke':
