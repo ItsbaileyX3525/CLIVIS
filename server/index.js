@@ -41,9 +41,37 @@ app.post('/command', async (req, res) => {
         output = data.text;
       } catch (err) {
         console.log(err)
-        output = "Error fetching parse, API connection failed :<";
+        output = "Error fetching paste, API connection failed :<";
       }
       break;
+
+    case 'pasteUpload':
+      try {
+        const response = await fetch('https://rustful.baileygamesand.codes/paste', {
+          method: 'POST',
+          headers: {
+            'accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            text: arg
+          })
+        })
+
+        if (!response || !response.ok) {
+          console.log(response)
+          output = "Something failed with the API.";
+          break;
+        }
+
+        const data = await response.json();
+
+        output = `Paste uploaded successfully! Paste code: ${data.code}`
+      } catch (err) {
+        output = "Error fetching paste, API connection failed :<";
+      }
+      break;
+      
     default:
       output = `Unknown command: ${command} :<`;
   }

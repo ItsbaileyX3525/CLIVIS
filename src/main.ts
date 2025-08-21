@@ -33,7 +33,40 @@ async function sendCommandToServer(cmd: string, ...args: string[]) {
 }
 
 async function processCommand(cmd: string) {
-  const [command, ...args] = cmd.trim().split(' ') //Did not know that ...args was a thing prior
+  function parseArgs(input: string): string[] {
+    const tokens: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < input.length; i++) {
+      const ch = input[i];
+
+      if (ch === '\\' && i + 1 < input.length) {
+        current += input[++i];
+        continue;
+      }
+
+      if (ch === '"') {
+        inQuotes = !inQuotes;
+        continue;
+      }
+
+      if (ch === ' ' && !inQuotes) {
+        if (current !== '') {
+          tokens.push(current);
+          current = '';
+        }
+        continue;
+      }
+
+      current += ch;
+    }
+
+    if (current !== '') tokens.push(current);
+    return tokens;
+  }
+
+  const [command, ...args] = parseArgs(cmd.trim());
 
   term.writeln("\r\n")
 
@@ -66,7 +99,7 @@ async function processCommand(cmd: string) {
           term.writeln("please add an ID")
         }
       } 
-      else if (args[0] === '-p') {
+      else if (args[0] === '-u') {
         if (args[1].trim()) {
           const data = await sendCommandToServer("pasteUpload",args[1])
 
@@ -77,7 +110,7 @@ async function processCommand(cmd: string) {
         }
       } 
       else if (args[0] === '-h'){
-        term.writeln('-p "args"  Upload your paste\r\n-r "id"   Retrieve your paste')
+        term.writeln('-u "args"  Upload your paste\r\n-r "id"   Retrieve your paste')
       } 
       else {
         term.writeln("Invalid argument, use paste -h to see available options")
