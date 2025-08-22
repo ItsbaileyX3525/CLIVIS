@@ -121,9 +121,164 @@ output`},
     ] },
     { name: 'etc', type: 'dir', children: [] },
     { name: 'games', type: 'dir', children: [
-      { name: 'platformer.AppImage', type: 'game', content: "platformer" }
+      { name: 'susClicker.AppImage', type: 'game', content: 'susclicker'},
+      { name: 'platformer.AppImage', type: 'game', content: "platformer" },
     ] },
   ]
+}
+
+const commands = [
+  'help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 
+  'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 
+  'joke', 'elot'
+];
+
+const commandOptions: { [key: string]: string[] } = {
+  'quote': ['-r', '--random', '-u', '--upload', '-i', '-h', '--help'],
+  'paste': ['-r', '--retrieve', '-u', '--upload', '-d', '--delete', '-h', '--help'],
+  'python': ['-c'],
+  'cd': ['..', '/'],
+  'gpt': [],
+  'cowsay': [],
+  'kanye': [],
+  'joke': [],
+  'elot': []
+};
+
+function getCompletions(input: string): string[] {
+  const parts = input.trim().split(' ');
+  const command = parts[0];
+  const currentArg = parts[parts.length - 1];
+  
+  if (parts.length === 1) {
+    return commands.filter(cmd => cmd.startsWith(currentArg));
+  }
+  
+  if (command === 'cd' || command === 'ls' || command === 'rmdir') {
+    // Directory completions
+    const currentDir = findDir(currentPath);
+    if (currentDir && currentDir.children) {
+      const dirs = currentDir.children
+        .filter(item => item.type === 'dir')
+        .map(item => item.name)
+        .filter(name => name.startsWith(currentArg));
+      
+      if (command === 'cd') {
+        return [...dirs, '..'].filter(name => name.startsWith(currentArg));
+      }
+      return dirs;
+    }
+  }
+  
+  if (command === 'cat' || command === 'touch' || command === 'python') {
+    const currentDir = findDir(currentPath);
+    if (currentDir && currentDir.children) {
+      return currentDir.children
+        .filter(item => item.type === 'file')
+        .map(item => item.name)
+        .filter(name => name.startsWith(currentArg));
+    }
+  }
+  
+  if (command === 'w3m') {
+    const currentDir = findDir(currentPath);
+    if (currentDir && currentDir.children) {
+      return currentDir.children
+        .filter(item => item.type === 'image')
+        .map(item => item.name)
+        .filter(name => name.startsWith(currentArg));
+    }
+  }
+  
+  if (command.startsWith('./')) {
+    const currentDir = findDir(currentPath);
+    if (currentDir && currentDir.children) {
+      return currentDir.children
+        .filter(item => item.type === 'game')
+        .map(item => './' + item.name)
+        .filter(name => name.startsWith(input));
+    }
+  }
+  
+  if (commandOptions[command] && parts.length === 2) {
+    return commandOptions[command].filter((option: string) => option.startsWith(currentArg));
+  }
+  
+  return [];
+}
+
+function handleAutocomplete(): void {
+  const completions = getCompletions(commandBuffer);
+  
+  if (completions.length === 0) {
+    return;
+  }
+  
+  if (completions.length === 1) {
+    const parts = commandBuffer.trim().split(' ');
+    const completion = completions[0];
+    
+    parts[parts.length - 1] = completion;
+    const newBuffer = parts.join(' ') + ' ';
+    
+    term.write('\x1b[2K\x1b[G' + getPrompt() + newBuffer);
+    commandBuffer = newBuffer;
+  } else {
+    term.writeln('');
+    
+    const maxLength = Math.max(...completions.map(c => c.length));
+    const columns = Math.floor(80 / (maxLength + 2));
+    
+    for (let i = 0; i < completions.length; i += columns) {
+      const row = completions.slice(i, i + columns);
+      const coloredRow = row.map(item => {
+        if (commands.includes(item)) {
+          return `${Colors.green}${item.padEnd(maxLength)}${Colors.reset}`;
+        } else if (item.startsWith('-')) {
+          return `${Colors.yellow}${item.padEnd(maxLength)}${Colors.reset}`;
+        } else if (item.endsWith('/') || item === '..') {
+          return `${Colors.brightBlue}${item.padEnd(maxLength)}${Colors.reset}`;
+        } else if (item.startsWith('./')) {
+          return `${Colors.brightGreen}${item.padEnd(maxLength)}${Colors.reset}`;
+        } else {
+          return `${Colors.white}${item.padEnd(maxLength)}${Colors.reset}`;
+        }
+      });
+      term.writeln(coloredRow.join('  '));
+    }
+    
+    const commonPrefix = findCommonPrefix(completions);
+    const parts = commandBuffer.trim().split(' ');
+    const lastPart = parts[parts.length - 1];
+    
+    if (commonPrefix.length > lastPart.length) {
+      parts[parts.length - 1] = commonPrefix;
+      const newBuffer = parts.join(' ');
+      term.write(getPrompt() + newBuffer);
+      commandBuffer = newBuffer;
+    } else {
+      term.write(getPrompt() + commandBuffer);
+    }
+  }
+}
+
+function findCommonPrefix(strings: string[]): string {
+  if (strings.length === 0) return '';
+  if (strings.length === 1) return strings[0];
+  
+  let prefix = '';
+  const firstString = strings[0];
+  
+  for (let i = 0; i < firstString.length; i++) {
+    const char = firstString[i];
+    if (strings.every(str => str[i] === char)) {
+      prefix += char;
+    } else {
+      break;
+    }
+  }
+  
+  return prefix;
 }
 
 let currentPath = '/';
@@ -222,7 +377,16 @@ async function loadGame(game: string): Promise<void> {
   iframe.style.top = "0";
   switch (game) {
     case 'platformer':
-      iframe.src = '/games/platformer/index.html'
+      iframe.src = '/games/platformer/index.html';
+      break;
+    case 'susclicker':
+      iframe.src = '/games/susClicker/index.html';
+      break;
+    case '':
+      break;
+    default:
+      break;
+
   }
   document.body.appendChild(iframe)
 
@@ -368,6 +532,7 @@ async function processCommand(cmd: string) {
       term.writeln(`${Colors.green}  echo${Colors.reset}        - Print text or write to file`);
       term.writeln(`${Colors.green}  python${Colors.reset}      - Run Python code or scripts`);
       term.writeln(`${Colors.green}  w3m${Colors.reset}         - Display images in terminal`);
+      term.writeln(`${Colors.yellow}  gpt${Colors.reset}         - Ask AI a question`);
       term.writeln(`${Colors.yellow}  ping${Colors.reset}        - Test server connection`);
       term.writeln(`${Colors.yellow}  quote${Colors.reset}       - Random quotes (try -h for options)`);
       term.writeln(`${Colors.yellow}  paste${Colors.reset}       - Pastebin service (try -h for options)`);
@@ -394,12 +559,17 @@ async function processCommand(cmd: string) {
 
     case 'gpt':
       if (args[0]) {
+        term.writeln(info('Thinking...'));
         const data = await sendCommandToServer(command, args[0] + " No emojis");
         if (data.startsWith('success')) {
-          term.writeln(success(data.slice(7)))
+          const response = data.slice(7);
+          term.writeln(`${Colors.bright}${Colors.cyan}AI Response:${Colors.reset}`);
+          term.writeln(`${Colors.white}${response}${Colors.reset}`);
         } else {
-          term.writeln(error(data))
+          term.writeln(error(data));
         }  
+      } else {
+        term.writeln(warning('Usage: gpt <your question>'));
       }
 
       break;
@@ -446,58 +616,106 @@ async function processCommand(cmd: string) {
     case 'quote':
       if (args[0] === '-r' || args[0] === '--random') {
         const data = await sendCommandToServer('randomQuote');
-
-        term.writeln(data);
+        if (data.includes('Quote:')) {
+          const lines = data.split('\r\n');
+          const quote = lines[0].replace('Quote: ', '');
+          const speaker = lines[1].replace('Speaker: ', '');
+          term.writeln(`${Colors.bright}${Colors.yellow}"${quote}"${Colors.reset}`);
+          term.writeln(`${Colors.gray}— ${Colors.cyan}${speaker}${Colors.reset}`);
+        } else {
+          term.writeln(error(data));
+        }
       }
       else if (args[0] === "-u" || args[0] === '--upload'){
-        const data = await sendCommandToServer('uploadQuote', args[1], args[2]);
-        
-        term.writeln(data);
+        if (args[1] && args[2]) {
+          const data = await sendCommandToServer('uploadQuote', args[1], args[2]);
+          if (data.includes('successfully')) {
+            const id = data.match(/quote id: (\d+)/)?.[1];
+            term.writeln(success(`Quote uploaded! ID: ${highlight(id || 'unknown')}`));
+          } else {
+            term.writeln(error(data));
+          }
+        } else {
+          term.writeln(warning('Usage: quote -u "quote text" "speaker name"'));
+        }
       }
       else if (args[0] === '-i') {
-        const data = await sendCommandToServer('idQuote', args[1]);
-
-        term.writeln(data);
+        if (args[1]) {
+          const data = await sendCommandToServer('idQuote', args[1]);
+          if (data.includes('Quote:')) {
+            const lines = data.split('\r\n');
+            const quote = lines[0].replace('Quote: ', '');
+            const speaker = lines[1].replace('Speaker: ', '');
+            term.writeln(`${Colors.bright}${Colors.yellow}"${quote}"${Colors.reset}`);
+            term.writeln(`${Colors.gray}— ${Colors.cyan}${speaker}${Colors.reset}`);
+          } else {
+            term.writeln(error(data));
+          }
+        } else {
+          term.writeln(warning('Usage: quote -i <id>'));
+        }
       }
       else if (args[0] === '-h' || args[0] === '--help') {
-        term.writeln('-r, --random    Get a random quote\r\n-u, --upload    Upload your own quote, example: quote -u "quote" "speaker"\r\n-i    Retrieve a quote by ID');
+        term.writeln(`${Colors.bright}${Colors.cyan}Quote Commands:${Colors.reset}`);
+        term.writeln(`${Colors.green}  -r, --random${Colors.reset}      Get a random quote`);
+        term.writeln(`${Colors.green}  -u, --upload${Colors.reset}      Upload your own quote`);
+        term.writeln(`${Colors.green}  -i <id>${Colors.reset}           Retrieve a quote by ID`);
+        term.writeln(`${Colors.yellow}Example:${Colors.reset} quote -u "Hello world" "Anonymous"`);
       }
       else {
-        term.writeln("Invalid argument, use quote -h or --help to see available options");
+        term.writeln(error("Invalid argument, use quote -h or --help for options"));
       }
       break;
 
     case 'paste':
       if (args[0] === '-r' || args[0] === '--retrieve') {
-        if (args[1].trim()) {
-          const data = await sendCommandToServer("pasteRetrieve", args[1])
-
-          term.writeln(data);
-        } 
-        else {
-          term.writeln("please add an ID")
+        if (args[1] && args[1].trim()) {
+          const data = await sendCommandToServer("pasteRetrieve", args[1]);
+          if (data === '404 - Not Found') {
+            term.writeln(error(`Paste not found: ${args[1]}`));
+          } else if (data.includes('Error') || data.includes('failed')) {
+            term.writeln(error(data));
+          } else {
+            term.writeln(`${Colors.bright}${Colors.cyan}Paste Content:${Colors.reset}`);
+            term.writeln(`${Colors.gray}${data}${Colors.reset}`);
+          }
+        } else {
+          term.writeln(warning('Usage: paste -r <paste_id>'));
         }
       } 
       else if (args[0] === '-u' || args[0] === '--upload') {
-        if (args[1].trim()) {
-          const data = await sendCommandToServer("pasteUpload",args[1])
-
-          term.writeln(data);
-        }
-        else {
-          term.writeln("Add some text to upload!");
+        if (args[1] && args[1].trim()) {
+          const data = await sendCommandToServer("pasteUpload", args[1]);
+          if (data.includes('successfully')) {
+            const code = data.match(/paste code: (\w+)/)?.[1];
+            term.writeln(success(`Paste uploaded! Code: ${highlight(code || 'unknown')}`));
+          } else {
+            term.writeln(error(data));
+          }
+        } else {
+          term.writeln(warning('Usage: paste -u "text to upload"'));
         }
       }
       else if (args[0] === '-d' || args[0] === '--delete') {
-        const data = await sendCommandToServer("pasteDelete", args[1])
-
-        term.writeln(data);
+        if (args[1]) {
+          const data = await sendCommandToServer("pasteDelete", args[1]);
+          if (data.includes('successfully')) {
+            term.writeln(success(`Paste ${highlight(args[1])} deleted successfully`));
+          } else {
+            term.writeln(error(data));
+          }
+        } else {
+          term.writeln(warning('Usage: paste -d <paste_id>'));
+        }
       }
       else if (args[0] === '-h' || args[0] === '--help'){
-        term.writeln('-u, --upload "args"  Upload your paste\r\n-r, --retrieve "id"   Retrieve your paste\r\n-d, --delete "id"   Delete your paste');
+        term.writeln(`${Colors.bright}${Colors.cyan}Paste Commands:${Colors.reset}`);
+        term.writeln(`${Colors.green}  -u, --upload${Colors.reset}      Upload your paste`);
+        term.writeln(`${Colors.green}  -r, --retrieve${Colors.reset}    Retrieve your paste`);
+        term.writeln(`${Colors.green}  -d, --delete${Colors.reset}      Delete your paste`);
       } 
       else {
-        term.writeln("Invalid argument, use paste -h or --help to see available options");
+        term.writeln(error("Invalid argument, use paste -h or --help for options"));
       }
       break;
     
@@ -660,8 +878,7 @@ async function processCommand(cmd: string) {
         term.writeln(warning('Usage: python <filename> or python -c "code"'));
       }
 
-      break;
-
+      break; 
     case 'w3m':
       if (args[0]) {
         const fileName = args[0];
@@ -681,29 +898,38 @@ async function processCommand(cmd: string) {
       break;
 
     case 'cowsay':
-      if (true) {
+      if (args[0]) {
         const data = await sendCommandToServer('cowsay', args[0]);
-      
-        const lines = data.split("\n");
-        const width = Math.max(...lines.map((l: string) => l.length));
+        
+        if (data.includes('failed') || data.includes('Error')) {
+          term.writeln(error(data));
+        } else {
+          const lines = data.split("\n");
+          const width = Math.max(...lines.map((l: string) => l.length));
 
-        let output = " " + "_".repeat(width + 2) + "\n";
+          let output = " " + "_".repeat(width + 2) + "\n";
 
-        for (const line of lines) {
-          output += `< ${line.padEnd(width, " ")} >\n`;
+          for (const line of lines) {
+            output += `< ${line.padEnd(width, " ")} >\n`;
+          }  
+
+          output += " " + "-".repeat(width + 2) + "\n";
+
+          term.writeln(output);
         }
-
-        output += " " + "-".repeat(width + 2) + "\n";
-
-        term.writeln(output);
+      } else {
+        term.writeln(warning('Usage: cowsay <message>'));
       }
       break;
 
-    case 'kanye':
-      if (true){
-        const data = await sendCommandToServer('kanye');
-
-        term.writeln(data);
+    case 'kanye': 
+      const kanyeData = await sendCommandToServer('kanye');
+      if (kanyeData.includes('Failed') || kanyeData.includes('failed')) {
+        term.writeln(error(kanyeData));
+      } else {
+        term.writeln(`${Colors.bright}${Colors.magenta}Kanye says:${Colors.reset}`);
+        term.writeln(`${Colors.yellow}"${kanyeData}"${Colors.reset}`);
+        term.writeln(`${Colors.gray}— Kanye West${Colors.reset}`);
       }
 
       break;
@@ -713,10 +939,17 @@ async function processCommand(cmd: string) {
       break;
 
     case 'joke':
-      if (true){
-        const data = await sendCommandToServer('joke')
-
-        term.writeln(data);
+      const jokeData = await sendCommandToServer('joke');
+      if (jokeData.includes('Failed') || jokeData.includes('failed')) {
+        term.writeln(error(jokeData));
+      } else {
+        const lines = jokeData.split('\n');
+        if (lines.length >= 2) {
+          term.writeln(`${Colors.bright}${Colors.cyan}${lines[0]}${Colors.reset}`);
+          term.writeln(`${Colors.brightGreen}${lines[1]}${Colors.reset}`);
+        } else {
+          term.writeln(`${Colors.brightCyan}${jokeData}${Colors.reset}`);
+        }
       }
 
       break;
@@ -770,7 +1003,11 @@ function setupKeyHandle() {
   term.onKey(async ({ key, domEvent }) => {
     const printable = !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
 
-    if (domEvent.key === 'ArrowUp') {
+    if (domEvent.key === 'Tab') {
+      domEvent.preventDefault();
+      handleAutocomplete();
+      
+    } else if (domEvent.key === 'ArrowUp') {
       if (commandHistory.length === 0) return;
 
       if (currentCommand < commandHistory.length) {
