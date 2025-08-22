@@ -17,7 +17,7 @@ let commandBuffer = '';
 let pyodide: PyodideInterface
 let pythonInitialised: boolean = false;
 
-type NodeType = 'dir' | 'file' | 'image';
+type NodeType = 'dir' | 'file' | 'image' | 'game';
 
 interface FileNode {
   name: string;
@@ -25,6 +25,17 @@ interface FileNode {
   children?: FileNode[];
   content?: string;
 }
+
+//Lets create some gui apps.. Good lord
+/*
+I gonna plan it out just to make it a bit easier IG
+
+I think the easiest method for doing the gui apps is to either use
+a iframe or just fixed/absolute divs?
+
+I'll try by implementing an iframe first as that works as a
+browser within a browser I think...
+*/
 
 async function initPython() {
 	pyodide = await (window as any).loadPyodide();
@@ -40,8 +51,6 @@ async function runPython(code: string): Promise<string> {
   }
 
 }
-
-
 
 let fileSystem: FileNode = {
   name: '/',
@@ -62,7 +71,10 @@ output`},
         { name: 'Documents', type: 'dir', children: [] },
       ]}
     ] },
-    { name: 'etc', type: 'dir', children: [] }
+    { name: 'etc', type: 'dir', children: [] },
+    { name: 'games', type: 'dir', children: [
+      { name: 'platformer.AppImage', type: 'game', content: "platformer" }
+    ] },
   ]
 }
 
@@ -134,6 +146,48 @@ function findNode(path: string, fs: FileNode = fileSystem): FileNode | null {
 	}
 
 	return current;
+}
+
+let controller: AbortController;
+
+function interruptSleep() {
+  controller.abort();
+}
+
+export async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => resolve(), ms);
+
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        clearTimeout(timeout);
+        reject(console.log("Sleep called externally"));
+      }, { once: true });
+    }
+  });
+}
+
+async function loadGame(game: string): Promise<void> {
+  const iframe = document.createElement('iframe') as HTMLIFrameElement;
+  
+  controller = new AbortController();
+
+  iframe.style.width = "100%";
+  iframe.style.height = "100%";
+  iframe.style.position = "absolute";
+  iframe.style.zIndex = "999";
+  iframe.style.left = "0";
+  iframe.style.top = "0";
+  switch (game) {
+    case 'platformer':
+      iframe.src = '/games/platformer/index.html'
+  }
+  document.body.appendChild(iframe)
+
+  await sleep(999999999, controller.signal).catch(console.error);
+
+  iframe.remove()
+
 }
 
 //COMPLETE: Add command history... Idk even where to start tho
@@ -228,6 +282,31 @@ async function processCommand(cmd: string) {
     commandTmp += " " + e
   }
   commandHistory.push(commandTmp);
+
+  //Js doesnt support the statswith in switch
+  //I can always change the switch to true but nah
+
+  if (command.startsWith("./")) {
+    let game = command.split("./")[1]
+    console.log(game)
+    const filePath = currentPath + game;
+    const file = findNode(filePath);
+
+    if (file) {
+      if (file.type == 'game') {
+        await loadGame(file.content || '')
+        return;
+      } else {
+        term.writeln(`${game} is not an executable.`)
+        return;
+      }
+    } else {
+      term.writeln(`File not found: ${game}`)
+      return;
+    }
+
+  }
+
   switch (command) {
     case 'help':
       term.writeln('Available commands: help, echo, w3m, touch, cat, mkdir, rmdir, cd, python, paste, kanye, cowsay, elot, joke and ping\r\nI recommnd using ping to test if the server is working!');
@@ -549,7 +628,10 @@ function setupKeyHandle() {
       term.write(key);
     }
   });
+
 }
+
+(window as any).interruptSleep = interruptSleep
 
 document.addEventListener('DOMContentLoaded', async () => {
   term = new Terminal({
