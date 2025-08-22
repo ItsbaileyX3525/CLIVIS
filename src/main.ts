@@ -1150,13 +1150,35 @@ function setupKeyHandle() {
 
 }
 
+async function waitForFontLoad(fontFamily: string): Promise<boolean> {
+  if (!document.fonts) {
+    return new Promise((resolve) => {
+      setTimeout(() => resolve(true), 100);
+    });
+  }
+
+  try {
+    await document.fonts.load(`1em ${fontFamily}`);
+    return document.fonts.check(`1em ${fontFamily}`);
+  } catch (error) {
+    console.warn(`Font loading failed for ${fontFamily}:`, error);
+    return false;
+  }
+}
+
 (window as any).interruptSleep = interruptSleep
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const fontLoaded = await waitForFontLoad('fira-code');
+  
+  if (!fontLoaded) {
+    console.log('Fira Code failed to load, defaulting to monospace, expect some weird stuff to happen :P');
+  }
+
   term = new Terminal({
     convertEol: true,
     cursorBlink: true,
-    fontFamily: "fira-code",
+    fontFamily: fontLoaded ? "fira-code" : "monospace",
     //lineHeight: 1.2, //Idk it kinda just fixed itself?
     //letterSpacing: 0,
   });
