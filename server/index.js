@@ -145,7 +145,7 @@ app.post('/command', async (req, res) => {
 
       if (!response || !response.ok) {
         output = "Failed fetching kanye.rest API >:(";
-        return;
+        break;
       }
 
       data = await response.json();
@@ -159,7 +159,7 @@ app.post('/command', async (req, res) => {
 
       if (!response || !response.ok) {
         output = "Flikhost Failed! Angry face!";
-        return;
+        break;
       }
 
       data = await response.json()
@@ -167,6 +167,29 @@ app.post('/command', async (req, res) => {
       output = `${data.Question}\n${data.Answer}`
       break;
 
+    case 'gpt':
+      response = await fetch('https://ai.hackclub.com/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept' : "*/*"
+        },
+        body: JSON.stringify({
+          messages: [{
+            content: args[0],
+            role: 'user'
+          }]
+        })
+      })      
+      if (!response || !response.ok) {
+        output = "Hackclub API failed, heidi back at it >:("
+        break;
+      }
+
+      data = await response.json()
+      data = data.choices[0].message.content
+      output = "success"+data.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      break;
     default:
       output = `Unknown command: ${command} :<`;
   }

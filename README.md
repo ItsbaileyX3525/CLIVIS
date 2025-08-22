@@ -33,13 +33,16 @@ The following features are planned or under consideration:
     - [x] Base directory support
     - [x] Directory exploration
     - [x] Path handling
+    - [ ] Add autocomplete
 - **Command History**
     - [x] Persistent and searchable command history
+    - [ ] Navigate current input with left and right arrow keys
 - **Graphical Support**
     - [x] Visual enhancements and graphical output for supported commands
+    - [x] Make the terminal amazing with colours
 - **Games**
     - [ ] Terminal-based games (under consideration)
-    - [ ] GUI-based games (maybe)
+    - [x] GUI-based games (maybe)
 
 ## Building locally
 

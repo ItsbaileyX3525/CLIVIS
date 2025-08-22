@@ -5,6 +5,54 @@ interface PyodideInterface {
   runPython: (code: string) => any;
 }
 
+const Colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  white: '\x1b[37m',
+  gray: '\x1b[90m',
+  
+  brightRed: '\x1b[91m',
+  brightGreen: '\x1b[92m',
+  brightYellow: '\x1b[93m',
+  brightBlue: '\x1b[94m',
+  brightMagenta: '\x1b[95m',
+  brightCyan: '\x1b[96m',
+} as const;
+
+function success(text: string): string {
+  return `${Colors.brightGreen}${text}${Colors.reset}`;
+}
+
+function error(text: string): string {
+  return `${Colors.brightRed}${text}${Colors.reset}`;
+}
+
+function warning(text: string): string {
+  return `${Colors.brightYellow}${text}${Colors.reset}`;
+}
+
+function info(text: string): string {
+  return `${Colors.brightCyan}${text}${Colors.reset}`;
+}
+
+function highlight(text: string): string {
+  return `${Colors.bright}${Colors.cyan}${text}${Colors.reset}`;
+}
+
+function getPrompt(): string {
+  const pathColor = Colors.brightBlue;
+  const promptColor = Colors.brightGreen;
+  return `${pathColor}${currentPath}${Colors.reset} ${promptColor}$${Colors.reset} `;
+}
+
 const protol: string = "http://"
 const hostname: string = "localhost"
 const port: string = ":3001"
@@ -118,12 +166,6 @@ function deleteDir(path: string): boolean {
   return true;  
 }
 
-function listDir(path: string): string {
-  const dir = findDir(path);
-  if (!dir || !dir.children) return '';
-  return dir.children.map(c => c.name).join(' ')
-}
-
 function addFile(path: string, fileName: string): boolean {
   const parent = findDir(path);
   if (!parent || !parent.children) return false;
@@ -230,11 +272,15 @@ async function sendCommandToServer(cmd: string, ...args: string[]) {
       body: JSON.stringify({ command: cmd, args: args }),
     });
 
+    if (!response.ok) {
+      return `Server error: ${response.status} ${response.statusText}`;
+    }
+
     const data = await response.json();
     
     return data.output;
   } catch (err) {
-    return "Error reaching server :<"
+    return "Cannot reach server :<"
   }
 }
 
@@ -275,7 +321,7 @@ async function processCommand(cmd: string) {
 
   const [command, ...args] = parseArgs(cmd.trim());
 
-  term.writeln("\r\n")
+  term.writeln("")
 
   let commandTmp: string = command
   for (let e of args) {
@@ -288,28 +334,49 @@ async function processCommand(cmd: string) {
 
   if (command.startsWith("./")) {
     let game = command.split("./")[1]
-    console.log(game)
     const filePath = currentPath + game;
     const file = findNode(filePath);
 
     if (file) {
       if (file.type == 'game') {
+        term.writeln(info(`Starting game: ${highlight(game)}`));
+        term.writeln(`${Colors.gray}Press Ctrl+C to exit the game${Colors.reset}`);
         await loadGame(file.content || '')
+        term.writeln(success('Game session ended'));
         return;
       } else {
-        term.writeln(`${game} is not an executable.`)
+        term.writeln(error(`${game} is not an executable file`));
         return;
       }
     } else {
-      term.writeln(`File not found: ${game}`)
+      term.writeln(error(`File not found: ${game}`));
       return;
     }
-
   }
 
   switch (command) {
     case 'help':
-      term.writeln('Available commands: help, echo, w3m, touch, cat, mkdir, rmdir, cd, python, paste, kanye, cowsay, elot, joke and ping\r\nI recommnd using ping to test if the server is working!');
+      term.writeln(`${Colors.bright}${Colors.cyan}Available Commands:${Colors.reset}`);
+      term.writeln(`${Colors.green}  help${Colors.reset}        - Show this help message`);
+      term.writeln(`${Colors.green}  clear${Colors.reset}       - Clear the terminal`);
+      term.writeln(`${Colors.green}  ls${Colors.reset}          - List files and directories`);
+      term.writeln(`${Colors.green}  cd${Colors.reset}          - Change directory`);
+      term.writeln(`${Colors.green}  mkdir${Colors.reset}       - Create directory`);
+      term.writeln(`${Colors.green}  rmdir${Colors.reset}       - Remove directory`);
+      term.writeln(`${Colors.green}  touch${Colors.reset}       - Create file`);
+      term.writeln(`${Colors.green}  cat${Colors.reset}         - Display file contents`);
+      term.writeln(`${Colors.green}  echo${Colors.reset}        - Print text or write to file`);
+      term.writeln(`${Colors.green}  python${Colors.reset}      - Run Python code or scripts`);
+      term.writeln(`${Colors.green}  w3m${Colors.reset}         - Display images in terminal`);
+      term.writeln(`${Colors.yellow}  ping${Colors.reset}        - Test server connection`);
+      term.writeln(`${Colors.yellow}  quote${Colors.reset}       - Random quotes (try -h for options)`);
+      term.writeln(`${Colors.yellow}  paste${Colors.reset}       - Pastebin service (try -h for options)`);
+      term.writeln(`${Colors.yellow}  cowsay${Colors.reset}      - Make a cow say something`);
+      term.writeln(`${Colors.yellow}  kanye${Colors.reset}       - Get Kanye wisdom`);
+      term.writeln(`${Colors.yellow}  joke${Colors.reset}        - Get a random joke`);
+      term.writeln(`${Colors.yellow}  elot${Colors.reset}        - Display Elot image`);
+      term.writeln(`${Colors.magenta}  ./game${Colors.reset}      - Run executable games`);
+      term.writeln(`\n${info('Try ping to test if the server is working!')}`);
       break;
     
     case 'clear':
@@ -318,13 +385,29 @@ async function processCommand(cmd: string) {
 
     case 'ping':
       const data = await sendCommandToServer(command);
-      term.writeln(data);
+      if (data.includes('pong') || data.includes('success')) {
+        term.writeln(success(data));
+      } else {
+        term.writeln(error(data));
+      }
+      break;
+
+    case 'gpt':
+      if (args[0]) {
+        const data = await sendCommandToServer(command, args[0] + " No emojis");
+        if (data.startsWith('success')) {
+          term.writeln(success(data.slice(7)))
+        } else {
+          term.writeln(error(data))
+        }  
+      }
+
       break;
 
     case 'echo':
       if (args[args.length - 2] == ">>") {
         if (args[0] == ">>") {
-          term.writeln(`Please add some text to echo`)
+          term.writeln(warning('Please add some text to echo'))
           return;
         }
         const fileName = args[args.length - 1];
@@ -332,13 +415,13 @@ async function processCommand(cmd: string) {
         const file = findNode(filePath);
         if (file && file.type === 'file') {
           file.content += args[0]
-          term.writeln(args[0]);
+          term.writeln(`${Colors.gray}${args[0]}${Colors.reset}`);
         } else {
-          term.writeln(`File not found: ${fileName}`)
+          term.writeln(error(`File not found: ${fileName}`))
         }
       } else if (args[args.length - 2] == ">") {
         if (args[0] == ">") {
-          term.writeln(`Please add some text to echo`)
+          term.writeln(warning('Please add some text to echo'))
           return;
         }
         const fileName = args[args.length - 1];
@@ -346,15 +429,15 @@ async function processCommand(cmd: string) {
         const file = findNode(filePath);
         if (file && file.type === 'file') {
           file.content = args[0]
-          term.writeln(args[0]);
+          term.writeln(`${Colors.gray}${args[0]}${Colors.reset}`);
         } else {
-          term.writeln(`File not found: ${fileName}`)
+          term.writeln(error(`File not found: ${fileName}`))
         }
       } else {
-        if (args[0].length > 0){
-          term.writeln(args.join(' '));
+        if (args[0] && args[0].length > 0){
+          term.writeln(`${Colors.white}${args.join(' ')}${Colors.reset}`);
         } else {
-          term.writeln("Please add some text to echo");
+          term.writeln(warning("Please add some text to echo"));
         }        
       }
 
@@ -419,108 +502,180 @@ async function processCommand(cmd: string) {
       break;
     
     case 'mkdir':
-      if (true) {
+      if (args[0]) {
         const dirName = args[0]
-        if (addDir(currentPath, dirName)) term.writeln(`Directory created: ${dirName}`);
-        else term.writeln(`Failed to create directory`);
+        if (addDir(currentPath, dirName)) {
+          term.writeln(success(`Directory created: ${highlight(dirName)}`));
+        } else {
+          term.writeln(error(`Failed to create directory (already exists or invalid name)`));
+        }
+      } else {
+        term.writeln(warning('Usage: mkdir <directory_name>'));
       }
 
       break;
   
     case 'rmdir':
-      if (true) {
+      if (args[0]) {
         const dirName = args[0] 
-        if (deleteDir(`${currentPath}${dirName}`)) term.writeln(`Directory deleted: ${dirName}`);
-        else term.writeln(`Failed to delete directory`);
+        if (deleteDir(`${currentPath}${dirName}`)) {
+          term.writeln(success(`Directory deleted: ${highlight(dirName)}`));
+        } else {
+          term.writeln(error(`Failed to delete directory (not found or not empty)`));
+        }
+      } else {
+        term.writeln(warning('Usage: rmdir <directory_name>'));
       }
 
       break;
 
     case 'ls':
-      if (true) {
-        term.writeln(`\r\n${listDir(currentPath)}\r\n`);
+      const currentDir = findDir(currentPath);
+      if (currentDir && currentDir.children) {
+        if (currentDir.children.length === 0) {
+          term.writeln(`${Colors.gray}(empty directory)${Colors.reset}`);
+        } else {
+          term.writeln('');
+          currentDir.children.forEach(item => {
+            let coloredName = '';
+            switch (item.type) {
+              case 'dir':
+                coloredName = `${Colors.brightBlue}${item.name}/${Colors.reset}`;
+                break;
+              case 'file':
+                coloredName = `${Colors.white}${item.name}${Colors.reset}`;
+                break;
+              case 'image':
+                coloredName = `${Colors.magenta}${item.name}${Colors.reset}`;
+                break;
+              case 'game':
+                coloredName = `${Colors.brightGreen}${item.name}*${Colors.reset}`;
+                break;
+              default:
+                coloredName = item.name;
+            }
+            term.write(`${coloredName}  `);
+          });
+          term.writeln(' ');
+        }
+      } else {
+        term.writeln(error('Cannot access directory'));
       }
 
       break;
 
     case 'cd':
-      const target = args[0];
-      const newDir = target === '..'
-        ? currentPath.split('/').slice(0, -2).join('/') + '/'
-        : target.startsWith('/') ? target : currentPath + target + '/';
+      if (args[0]) {
+        const target = args[0];
+        const newDir = target === '..'
+          ? currentPath.split('/').slice(0, -2).join('/') + '/'
+          : target.startsWith('/') ? target : currentPath + target + '/';
 
-      if (findDir(newDir)) {
-        currentPath = newDir;
-        term.writeln(`Changed directory to ${currentPath}`);
+        if (findDir(newDir)) {
+          currentPath = newDir;
+          term.writeln(success(`Changed directory to ${highlight(currentPath)}`));
+        } else {
+          term.writeln(error(`Directory not found: ${target}`));
+        }
       } else {
-        term.writeln(`Directory not found`);
+        term.writeln(info(`Current directory: ${highlight(currentPath)}`));
       }
 
       break;
 
     case 'cat':
-      const fileName = args[0];
-      const filePath = currentPath + fileName;
-      const file = findNode(filePath);
+      if (args[0]) {
+        const fileName = args[0];
+        const filePath = currentPath + fileName;
+        const file = findNode(filePath);
 
-      if (file && file.type === 'file') {
-        term.writeln(file.content || 'No content');
+        if (file && file.type === 'file') {
+          if (file.content) {
+            term.writeln(`${Colors.gray}${file.content}${Colors.reset}`);
+          } else {
+            term.writeln(`${Colors.dim}(empty file)${Colors.reset}`);
+          }
+        } else {
+          term.writeln(error(`File not found: ${fileName}`));
+        }
       } else {
-        term.writeln(`File not found: ${fileName}`)
+        term.writeln(warning('Usage: cat <filename>'));
       }
 
       break;
 
     case 'touch':
-      if (true) { //Love the hack
+      if (args[0]) {
         const fileName = args[0]
-        if (addFile(currentPath, fileName)) term.writeln(`File created: ${fileName}`);
-        else term.writeln(`Failed to create file!`);
+        if (addFile(currentPath, fileName)) {
+          term.writeln(success(`File created: ${highlight(fileName)}`));
+        } else {
+          term.writeln(error(`Failed to create file (already exists or invalid name)`));
+        }
+      } else {
+        term.writeln(warning('Usage: touch <filename>'));
       }
 
       break;
 
     case 'python':
       if (!pythonInitialised) {
+        term.writeln(info('Initializing Python interpreter...'));
         await initPython();
+        term.writeln(success('Python ready!'));
       }
       if (args[0] == "-c") {
-        const output = await runPython(args[1]);
-        if (output && output != "undefined") {
-          term.writeln(output);
+        if (args[1]) {
+          const output = await runPython(args[1]);
+          if (output && output != "undefined") {
+            if (output.includes('Error') || output.includes('Exception')) {
+              term.writeln(error(`Python Error: ${output}`));
+            } else {
+              term.writeln(`${Colors.cyan}${output}${Colors.reset}`);
+            }
+          } else {
+            term.writeln(success("Code executed successfully (no output)"));
+          }
         } else {
-          term.writeln("No return output. Your code ran successfully tho!")
+          term.writeln(warning('Usage: python -c "code"'));
         }
-
         break;
       }
-      if (true) {
+      if (args[0]) {
         const fileName = args[0];
         const filePath = currentPath + fileName;
         const file = findNode(filePath);
 
         if (file && file.type === 'file') {
-          const output = await runPython(file.content || `output="Python code failed."`);
-          term.writeln(output);
+          const output = await runPython(file.content || `print("Empty file")`);
+          if (output.includes('Error') || output.includes('Exception')) {
+            term.writeln(error(`Python Error: ${output}`));
+          } else {
+            term.writeln(`${Colors.cyan}${output}${Colors.reset}`);
+          }
         } else {
-          term.writeln(`File not found: ${fileName}`)
+          term.writeln(error(`File not found: ${fileName}`));
         }
-
+      } else {
+        term.writeln(warning('Usage: python <filename> or python -c "code"'));
       }
 
       break;
 
     case 'w3m':
-      if (true) {
+      if (args[0]) {
         const fileName = args[0];
         const filePath = currentPath + fileName;
         const file = findNode(filePath);
 
         if (file && file.type === 'image') {
+          term.writeln(info(`Loading image: ${fileName}`));
           await loadImage(file.content || '/images/scared_heidi.png')
         } else {
-          term.writeln(`File not found: ${fileName}`)
+          term.writeln(error(`Image file not found: ${fileName}`));
         }
+      } else {
+        term.writeln(warning('Usage: w3m <image_filename>'));
       }
 
       break;
@@ -571,7 +726,8 @@ async function processCommand(cmd: string) {
     
     default:
       commandHistory.pop();
-      term.writeln(`Command not found: ${command}`)
+      term.writeln(error(`Command not found: ${command}`));
+      term.writeln(`${Colors.gray}Type ${Colors.cyan}help${Colors.gray} to see available commands${Colors.reset}`);
   }
 }
 
@@ -580,9 +736,34 @@ async function setupTerminal() {
   term.loadAddon(fitAddon); 
   term.loadAddon(imageAddon);
   term.open(termContainer);
-  fitAddon.fit();
-  term.writeln('Welcome to xterm clivis V0.1! Type "help" to get started!');
-  term.write('$ ');
+  fitAddon.fit(); 
+  
+  const welcomeBox = `
+\x1b[36m╔═══════════════════════════════════════════════════════════════════════════╗\x1b[0m
+\x1b[36m║\x1b[0m                    \x1b[1m\x1b[32mWelcome to CLIvis Terminal v1.0\x1b[0m                        \x1b[36m║\x1b[0m
+\x1b[36m╠═══════════════════════════════════════════════════════════════════════════╣\x1b[0m
+\x1b[36m║\x1b[0m \x1b[1m\x1b[35mEssential Commands:\x1b[0m                                                       \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   \x1b[32mhelp\x1b[0m        - See what this thing can do                                \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   \x1b[32mls\x1b[0m          - Check what's lying around                                 \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   \x1b[32mcd\x1b[0m          - Move around the filesystem                                \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   \x1b[32mpython -c\x1b[0m   - Run Python code on the fly                                \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   \x1b[32mw3m\x1b[0m         - View images right in your terminal                        \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m                                                                           \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m \x1b[1m\x1b[31m Yes, you can actually play games here!\x1b[0m                                   \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   Just \x1b[33mcd /games\x1b[0m and run \x1b[33m./platformer.AppImage\x1b[0m                            \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   Games go fullscreen - hit Ctrl+C when you're done                       \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m                                                                           \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m \x1b[1m\x1b[34mStuff that might be useful:\x1b[0m                                               \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   Arrow keys work for command history (because I'm not a monster)         \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   Try \x1b[37mquote -r\x1b[0m or \x1b[37mjoke\x1b[0m when you're bored                                  \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m   Python works with the fake filesystem I built                           \x1b[36m║\x1b[0m
+\x1b[36m╚═══════════════════════════════════════════════════════════════════════════╝\x1b[0m
+
+\x1b[1m\x1b[36mType \x1b[32mhelp\x1b[36m for the full command list!\x1b[0m
+`;
+
+  term.writeln(welcomeBox);
+  term.write(getPrompt());
 }
 
 function setupKeyHandle() {
@@ -597,7 +778,7 @@ function setupKeyHandle() {
       }
 
       commandBuffer = commandHistory[commandHistory.length - currentCommand] || '';
-      term.write('\x1b[2K\x1b[G$ ' + commandBuffer);
+      term.write('\x1b[2K\x1b[G' + getPrompt() + commandBuffer);
 
     } else if (domEvent.key === 'ArrowDown') {
       if (commandHistory.length === 0) return;
@@ -607,7 +788,7 @@ function setupKeyHandle() {
         commandBuffer = currentCommand === 0 ? '' : commandHistory[commandHistory.length - currentCommand];
       }
 
-      term.write('\x1b[2K\x1b[G$ ' + commandBuffer);
+      term.write('\x1b[2K\x1b[G' + getPrompt() + commandBuffer);
 
     } else if (domEvent.key === 'Enter') {
       if (commandBuffer.trim() !== '') {
@@ -615,7 +796,7 @@ function setupKeyHandle() {
       }
       commandBuffer = '';
       currentCommand = 0;
-      term.write('\r\n$ ');
+      term.write('\r\n' + getPrompt());
 
     } else if (domEvent.key === 'Backspace') {
       if (commandBuffer.length > 0) {
