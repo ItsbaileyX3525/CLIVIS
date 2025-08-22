@@ -1,297 +1,38 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { ImageAddon } from '@xterm/addon-image';
-interface PyodideInterface {
-  runPython: (code: string) => any;
-}
-
-const Colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  dim: '\x1b[2m',
-  
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  magenta: '\x1b[35m',
-  cyan: '\x1b[36m',
-  white: '\x1b[37m',
-  gray: '\x1b[90m',
-  
-  brightRed: '\x1b[91m',
-  brightGreen: '\x1b[92m',
-  brightYellow: '\x1b[93m',
-  brightBlue: '\x1b[94m',
-  brightMagenta: '\x1b[95m',
-  brightCyan: '\x1b[96m',
-} as const;
-
-function success(text: string): string {
-  return `${Colors.brightGreen}${text}${Colors.reset}`;
-}
-
-function error(text: string): string {
-  return `${Colors.brightRed}${text}${Colors.reset}`;
-}
-
-function warning(text: string): string {
-  return `${Colors.brightYellow}${text}${Colors.reset}`;
-}
-
-function info(text: string): string {
-  return `${Colors.brightCyan}${text}${Colors.reset}`;
-}
-
-function highlight(text: string): string {
-  return `${Colors.bright}${Colors.cyan}${text}${Colors.reset}`;
-}
-
+import { findDir, addDir, deleteDir, addFile, findNode } from './fileSystem.js';
+import { Colors, success, error, warning, info, highlight } from './colors.js';
+import { initPython, runPython, isPythonInitialised } from './python.js';
+import { sendCommandToServer } from './serverApi.js';
+import { getCompletions, findCommonPrefix } from './autocomplete.js';
+import { 
+  getCommandLineState, 
+  setCommandBuffer, 
+  clearCommandBuffer, 
+  redrawCommandLine, 
+  insertChar, 
+  deleteChar, 
+  deleteCharForward, 
+  moveCursorLeft, 
+  moveCursorRight, 
+  moveCursorToStart, 
+  moveCursorToEnd 
+} from './commandLineEditor.js';
+import { loadGame, interruptSleep } from './gameLoader.js';
 function getPrompt(): string {
   const pathColor = Colors.brightBlue;
   const promptColor = Colors.brightGreen;
   return `${pathColor}${currentPath}${Colors.reset} ${promptColor}$${Colors.reset} `;
 }
 
-const protol: string = "http://"
-const hostname: string = "localhost"
-const port: string = ":3001"
-
 let term: Terminal
 let fitAddon: FitAddon
 let imageAddon: ImageAddon
-let commandBuffer: string = '';
-let cursorIndex: number = 0;
-
-function redrawCommandLine() {
-  term.write('\x1b[2K\x1b[G' + getPrompt() + commandBuffer);
-  
-  const promptLength = getPromptDisplayLength();
-  const targetPosition = promptLength + cursorIndex;
-  term.write(`\x1b[${targetPosition + 1}G`);
-}
-
-function getPromptDisplayLength(): number {
-  const promptWithoutAnsi = currentPath + ' $ ';
-  return promptWithoutAnsi.length;
-}
-
-function insertChar(char: string) {
-  const before = commandBuffer.slice(0, cursorIndex);
-  const after = commandBuffer.slice(cursorIndex);
-  commandBuffer = before + char + after;
-  cursorIndex++;
-  redrawCommandLine();
-}
-
-function deleteChar() {
-  if (cursorIndex > 0) {
-    const before = commandBuffer.slice(0, cursorIndex - 1);
-    const after = commandBuffer.slice(cursorIndex);
-    commandBuffer = before + after;
-    cursorIndex--;
-    redrawCommandLine();
-  }
-}
-
-function deleteCharForward() {
-  if (cursorIndex < commandBuffer.length) {
-    const before = commandBuffer.slice(0, cursorIndex);
-    const after = commandBuffer.slice(cursorIndex + 1);
-    commandBuffer = before + after;
-    redrawCommandLine();
-  }
-}
-
-function moveCursorLeft() {
-  if (cursorIndex > 0) {
-    cursorIndex--;
-    term.write('\x1b[D');
-  }
-}
-
-function moveCursorRight() {
-  if (cursorIndex < commandBuffer.length) {
-    cursorIndex++;
-    term.write('\x1b[C');
-  }
-}
-
-function moveCursorToStart() {
-  cursorIndex = 0;
-  const promptLength = getPromptDisplayLength();
-  term.write(`\x1b[${promptLength + 1}G`);
-}
-
-function moveCursorToEnd() {
-  cursorIndex = commandBuffer.length;
-  const promptLength = getPromptDisplayLength();
-  term.write(`\x1b[${promptLength + cursorIndex + 1}G`);
-}
-
-function clearCommandBuffer() {
-  commandBuffer = '';
-  cursorIndex = 0;
-}
-
-let pyodide: PyodideInterface
-let pythonInitialised: boolean = false;
-
-type NodeType = 'dir' | 'file' | 'image' | 'game';
-
-interface FileNode {
-  name: string;
-  type: NodeType;
-  children?: FileNode[];
-  content?: string;
-}
-
-//Lets create some gui apps.. Good lord
-/*
-I gonna plan it out just to make it a bit easier IG
-
-I think the easiest method for doing the gui apps is to either use
-a iframe or just fixed/absolute divs?
-
-I'll try by implementing an iframe first as that works as a
-browser within a browser I think...
-*/
-
-async function initPython() {
-	pyodide = await (window as any).loadPyodide();
-  pythonInitialised = true
-}
-
-async function runPython(code: string): Promise<string> {
-  try {
-    let result = pyodide.runPython(code)
-    return String(result)    
-  } catch (err) {
-    return String(err)
-  }
-
-}
-
-let fileSystem: FileNode = {
-  name: '/',
-  type: 'dir',
-  children: [
-    { name: 'home', type: 'dir', children: [
-      { name: 'baile', type: 'dir', children: [
-        { name: 'Downloads', type: 'dir', children: [
-          { name: 'readme.md', type: 'file', content: "Hello, if you can read this then awesome!"},
-          { name: 'elot.png', type: 'image', content: "/images/Elot.png"},
-          { name: 'fun.py', type: 'file', content: `
-output = ""
-for e in range(10):
-    output += str(e) + "\\n"
-output`},
-        ] },
-        { name: 'Pictures', type: 'dir', children: [] },
-        { name: 'Documents', type: 'dir', children: [] },
-      ]}
-    ] },
-    { name: 'etc', type: 'dir', children: [] },
-    { name: 'games', type: 'dir', children: [
-      { name: 'susClicker.AppImage', type: 'game', content: 'susclicker'},
-      { name: 'platformer.AppImage', type: 'game', content: "platformer" },
-      { name: 'solarSandbox.AppImage', type: 'game', content: 'solar' }
-    ] },
-  ]
-}
-
-const commands = [
-  'help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 
-  'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 
-  'joke', 'elot'
-];
-
-const commandOptions: { [key: string]: string[] } = {
-  'quote': ['-r', '--random', '-u', '--upload', '-i', '-h', '--help'],
-  'paste': ['-r', '--retrieve', '-u', '--upload', '-d', '--delete', '-h', '--help'],
-  'python': ['-c'],
-  'cd': ['..', '/'],
-  'gpt': [],
-  'cowsay': [],
-  'kanye': [],
-  'joke': [],
-  'elot': []
-};
-
-function getCompletions(input: string): string[] {
-  const parts = input.trim().split(' ');
-  const command = parts[0];
-  const currentArg = parts[parts.length - 1];
-  
-  if (parts.length === 1) {
-    const commandMatches = commands.filter(cmd => cmd.startsWith(currentArg));
-    
-    const currentDir = findDir(currentPath);
-    let gameMatches: string[] = [];
-    if (currentDir && currentDir.children) {
-      gameMatches = currentDir.children
-        .filter(item => item.type === 'game')
-        .map(item => './' + item.name)
-        .filter(name => name.startsWith('./' + currentArg));
-    }
-    
-    return [...commandMatches, ...gameMatches];
-  }
-  
-  if (command === 'cd' || command === 'ls' || command === 'rmdir') {
-    const currentDir = findDir(currentPath);
-    if (currentDir && currentDir.children) {
-      const dirs = currentDir.children
-        .filter(item => item.type === 'dir')
-        .map(item => item.name)
-        .filter(name => name.startsWith(currentArg));
-      
-      if (command === 'cd') {
-        return [...dirs, '..'].filter(name => name.startsWith(currentArg));
-      }
-      return dirs;
-    }
-  }
-  
-  if (command === 'cat' || command === 'touch' || command === 'python') {
-    const currentDir = findDir(currentPath);
-    if (currentDir && currentDir.children) {
-      return currentDir.children
-        .filter(item => item.type === 'file')
-        .map(item => item.name)
-        .filter(name => name.startsWith(currentArg));
-    }
-  }
-  
-  if (command === 'w3m') {
-    const currentDir = findDir(currentPath);
-    if (currentDir && currentDir.children) {
-      return currentDir.children
-        .filter(item => item.type === 'image')
-        .map(item => item.name)
-        .filter(name => name.startsWith(currentArg));
-    }
-  }
-  
-  if (command.startsWith('./')) {
-    const currentDir = findDir(currentPath);
-    if (currentDir && currentDir.children) {
-      return currentDir.children
-        .filter(item => item.type === 'game')
-        .map(item => './' + item.name)
-        .filter(name => name.startsWith(currentArg));
-    }
-  }
-  
-  if (commandOptions[command] && parts.length === 2) {
-    return commandOptions[command].filter((option: string) => option.startsWith(currentArg));
-  }
-  
-  return [];
-}
 
 function handleAutocomplete(): void {
-  const completions = getCompletions(commandBuffer);
+  const { commandBuffer } = getCommandLineState();
+  const completions = getCompletions(commandBuffer, currentPath);
   
   if (completions.length === 0) {
     return;
@@ -305,7 +46,7 @@ function handleAutocomplete(): void {
     const newBuffer = parts.join(' ') + ' ';
     
     term.write('\x1b[2K\x1b[G' + getPrompt() + newBuffer);
-    commandBuffer = newBuffer;
+    setCommandBuffer(newBuffer);
   } else {
     term.writeln('');
     
@@ -315,7 +56,7 @@ function handleAutocomplete(): void {
     for (let i = 0; i < completions.length; i += columns) {
       const row = completions.slice(i, i + columns);
       const coloredRow = row.map(item => {
-        if (commands.includes(item)) {
+        if (['help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 'joke', 'elot'].includes(item)) {
           return `${Colors.green}${item.padEnd(maxLength)}${Colors.reset}`;
         } else if (item.startsWith('-')) {
           return `${Colors.yellow}${item.padEnd(maxLength)}${Colors.reset}`;
@@ -338,149 +79,14 @@ function handleAutocomplete(): void {
       parts[parts.length - 1] = commonPrefix;
       const newBuffer = parts.join(' ');
       term.write(getPrompt() + newBuffer);
-      commandBuffer = newBuffer;
+      setCommandBuffer(newBuffer);
     } else {
       term.write(getPrompt() + commandBuffer);
     }
   }
 }
 
-function findCommonPrefix(strings: string[]): string {
-  if (strings.length === 0) return '';
-  if (strings.length === 1) return strings[0];
-  
-  let prefix = '';
-  const firstString = strings[0];
-  
-  for (let i = 0; i < firstString.length; i++) {
-    const char = firstString[i];
-    if (strings.every(str => str[i] === char)) {
-      prefix += char;
-    } else {
-      break;
-    }
-  }
-  
-  return prefix;
-}
-
 let currentPath = '/';
-
-//What the fuck does this even actually do?
-
-function findDir(path: string, fs: FileNode = fileSystem): FileNode | null {
-  const parts = path.split('/').filter(Boolean);
-  let current: FileNode = fs;
-
-  for (const part of parts) {
-    if (!current.children) return null;
-    const next = current.children.find(node => node.name === part && node.type === 'dir');
-    if (!next) return null;
-    current = next;
-  }
-
-  return current
-}
-
-function addDir(path: string, dirName: string): boolean {
-  const parent = findDir(path);
-  if (!parent || !parent.children) return false;
-
-  if (parent.children.some(node => node.name === dirName)) return false;
-
-  parent.children.push({ name: dirName, type: 'dir', children: [] })
-  return true;
-}
-
-function deleteDir(path: string): boolean {
-  const parts = path.split('/').filter(Boolean);
-  const dirName = parts.pop();
-  if (!dirName) return false;
-
-  const parent = findDir('/' + parts.join('/'));
-  if (!parent || !parent.children) return false;
-
-  parent.children = parent.children.filter(node => node.name !== dirName);
-  return true;  
-}
-
-function addFile(path: string, fileName: string): boolean {
-  const parent = findDir(path);
-  if (!parent || !parent.children) return false;
-
-  if (parent.children.some(node => node.name === fileName)) return false;
-
-  parent.children.push({ name: fileName, type: 'file', content: "" })
-  return true;
-}
-
-function findNode(path: string, fs: FileNode = fileSystem): FileNode | null {
-	const parts = path.split('/').filter(Boolean);
-	let current: FileNode = fs;
-
-	for (const part of parts) {
-		if (!current.children) return null;
-		const next = current.children.find(node => node.name === part);
-		if (!next) return null;
-		current = next;
-	}
-
-	return current;
-}
-
-let controller: AbortController;
-
-function interruptSleep() {
-  controller.abort();
-}
-
-export async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => resolve(), ms);
-
-    if (signal) {
-      signal.addEventListener('abort', () => {
-        clearTimeout(timeout);
-        reject(console.log("Sleep called externally"));
-      }, { once: true });
-    }
-  });
-}
-
-async function loadGame(game: string): Promise<void> {
-  const iframe = document.createElement('iframe') as HTMLIFrameElement;
-  
-  controller = new AbortController();
-
-  iframe.style.width = "100%";
-  iframe.style.height = "100%";
-  iframe.style.position = "absolute";
-  iframe.style.zIndex = "999";
-  iframe.style.left = "0";
-  iframe.style.top = "0";
-  switch (game) {
-    case 'platformer':
-      iframe.src = '/games/platformer/index.html';
-      break;
-    case 'susclicker':
-      iframe.src = '/games/susClicker/index.html';
-      break;
-    case 'solar':
-      iframe.src = '/games/solar/index.html';
-      break;
-    case '':
-      break;
-    default:
-      break;
-
-  }
-  document.body.appendChild(iframe)
-
-  await sleep(999999999, controller.signal).catch(console.error);
-
-  iframe.remove()
-
-}
 
 //COMPLETE: Add command history... Idk even where to start tho
 // Apprently really easy..
@@ -512,26 +118,6 @@ async function loadImage(url: string) {
   const iip = `\x1b]1337;File=inline=1;size=${size}:${base64Data}\x07`;
 
   term.writeln(iip);
-}
-
-async function sendCommandToServer(cmd: string, ...args: string[]) {
-  try {
-    const response = await fetch(protol+hostname+port+"/command", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json '},
-      body: JSON.stringify({ command: cmd, args: args }),
-    });
-
-    if (!response.ok) {
-      return `Server error: ${response.status} ${response.statusText}`;
-    }
-
-    const data = await response.json();
-    
-    return data.output;
-  } catch (err) {
-    return "Cannot reach server :<"
-  }
 }
 
 async function processCommand(cmd: string) {
@@ -923,7 +509,7 @@ async function processCommand(cmd: string) {
       break;
 
     case 'python':
-      if (!pythonInitialised) {
+      if (!isPythonInitialised()) {
         term.writeln(info('Initializing Python interpreter...'));
         await initPython();
         term.writeln(success('Python ready!'));
@@ -1094,19 +680,19 @@ function setupKeyHandle() {
       handleAutocomplete();
       
     } else if (domEvent.key === 'ArrowLeft') {
-      moveCursorLeft();
+      moveCursorLeft(term);
       
     } else if (domEvent.key === 'ArrowRight') {
-      moveCursorRight();
+      moveCursorRight(term);
       
     } else if (domEvent.key === 'Home' || (domEvent.ctrlKey && domEvent.key === 'a')) {
-      moveCursorToStart();
+      moveCursorToStart(term, currentPath);
       
     } else if (domEvent.key === 'End' || (domEvent.ctrlKey && domEvent.key === 'e')) {
-      moveCursorToEnd();
+      moveCursorToEnd(term, currentPath);
       
     } else if (domEvent.key === 'Delete') {
-      deleteCharForward();
+      deleteCharForward(term, getPrompt);
       
     } else if (domEvent.key === 'ArrowUp') {
       if (commandHistory.length === 0) return;
@@ -1115,24 +701,25 @@ function setupKeyHandle() {
         currentCommand++;
       }
 
-      commandBuffer = commandHistory[commandHistory.length - currentCommand] || '';
-      cursorIndex = commandBuffer.length;
-      redrawCommandLine();
+      const newBuffer = commandHistory[commandHistory.length - currentCommand] || '';
+      setCommandBuffer(newBuffer);
+      redrawCommandLine(term, getPrompt);
 
     } else if (domEvent.key === 'ArrowDown') {
       if (commandHistory.length === 0) return;
 
       if (currentCommand > 0) {
         currentCommand--;
-        commandBuffer = currentCommand === 0 ? '' : commandHistory[commandHistory.length - currentCommand];
+        const newBuffer = currentCommand === 0 ? '' : commandHistory[commandHistory.length - currentCommand];
+        setCommandBuffer(newBuffer);
       } else {
-        commandBuffer = '';
+        setCommandBuffer('');
       }
       
-      cursorIndex = commandBuffer.length;
-      redrawCommandLine();
+      redrawCommandLine(term, getPrompt);
 
     } else if (domEvent.key === 'Enter') {
+      const { commandBuffer } = getCommandLineState();
       if (commandBuffer.trim() !== '') {
         await processCommand(commandBuffer);
       }
@@ -1141,10 +728,10 @@ function setupKeyHandle() {
       term.write('\r\n' + getPrompt());
 
     } else if (domEvent.key === 'Backspace') {
-      deleteChar();
+      deleteChar(term, getPrompt);
 
     } else if (printable && key.length === 1) {
-      insertChar(key);
+      insertChar(key, term, getPrompt);
     }
   });
 

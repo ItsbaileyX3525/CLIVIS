@@ -19,6 +19,7 @@
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/addon-image": "^0.8.0",
     "@xterm/xterm": "^5.5.0",
-    "tailwindcss": "^4.1.12"
+    "tailwindcss": "^4.1.12",
+    "ytdlp-nodejs": "^2.3.4"
   }
 }
