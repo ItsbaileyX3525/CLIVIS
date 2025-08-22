@@ -60,7 +60,79 @@ const port: string = ":3001"
 let term: Terminal
 let fitAddon: FitAddon
 let imageAddon: ImageAddon
-let commandBuffer = '';
+let commandBuffer: string = '';
+let cursorIndex: number = 0;
+
+function redrawCommandLine() {
+  term.write('\x1b[2K\x1b[G' + getPrompt() + commandBuffer);
+  
+  const promptLength = getPromptDisplayLength();
+  const targetPosition = promptLength + cursorIndex;
+  term.write(`\x1b[${targetPosition + 1}G`);
+}
+
+function getPromptDisplayLength(): number {
+  const promptWithoutAnsi = currentPath + ' $ ';
+  return promptWithoutAnsi.length;
+}
+
+function insertChar(char: string) {
+  const before = commandBuffer.slice(0, cursorIndex);
+  const after = commandBuffer.slice(cursorIndex);
+  commandBuffer = before + char + after;
+  cursorIndex++;
+  redrawCommandLine();
+}
+
+function deleteChar() {
+  if (cursorIndex > 0) {
+    const before = commandBuffer.slice(0, cursorIndex - 1);
+    const after = commandBuffer.slice(cursorIndex);
+    commandBuffer = before + after;
+    cursorIndex--;
+    redrawCommandLine();
+  }
+}
+
+function deleteCharForward() {
+  if (cursorIndex < commandBuffer.length) {
+    const before = commandBuffer.slice(0, cursorIndex);
+    const after = commandBuffer.slice(cursorIndex + 1);
+    commandBuffer = before + after;
+    redrawCommandLine();
+  }
+}
+
+function moveCursorLeft() {
+  if (cursorIndex > 0) {
+    cursorIndex--;
+    term.write('\x1b[D');
+  }
+}
+
+function moveCursorRight() {
+  if (cursorIndex < commandBuffer.length) {
+    cursorIndex++;
+    term.write('\x1b[C');
+  }
+}
+
+function moveCursorToStart() {
+  cursorIndex = 0;
+  const promptLength = getPromptDisplayLength();
+  term.write(`\x1b[${promptLength + 1}G`);
+}
+
+function moveCursorToEnd() {
+  cursorIndex = commandBuffer.length;
+  const promptLength = getPromptDisplayLength();
+  term.write(`\x1b[${promptLength + cursorIndex + 1}G`);
+}
+
+function clearCommandBuffer() {
+  commandBuffer = '';
+  cursorIndex = 0;
+}
 
 let pyodide: PyodideInterface
 let pythonInitialised: boolean = false;
@@ -123,6 +195,7 @@ output`},
     { name: 'games', type: 'dir', children: [
       { name: 'susClicker.AppImage', type: 'game', content: 'susclicker'},
       { name: 'platformer.AppImage', type: 'game', content: "platformer" },
+      { name: 'solarSandbox.AppImage', type: 'game', content: 'solar' }
     ] },
   ]
 }
@@ -151,11 +224,21 @@ function getCompletions(input: string): string[] {
   const currentArg = parts[parts.length - 1];
   
   if (parts.length === 1) {
-    return commands.filter(cmd => cmd.startsWith(currentArg));
+    const commandMatches = commands.filter(cmd => cmd.startsWith(currentArg));
+    
+    const currentDir = findDir(currentPath);
+    let gameMatches: string[] = [];
+    if (currentDir && currentDir.children) {
+      gameMatches = currentDir.children
+        .filter(item => item.type === 'game')
+        .map(item => './' + item.name)
+        .filter(name => name.startsWith('./' + currentArg));
+    }
+    
+    return [...commandMatches, ...gameMatches];
   }
   
   if (command === 'cd' || command === 'ls' || command === 'rmdir') {
-    // Directory completions
     const currentDir = findDir(currentPath);
     if (currentDir && currentDir.children) {
       const dirs = currentDir.children
@@ -196,7 +279,7 @@ function getCompletions(input: string): string[] {
       return currentDir.children
         .filter(item => item.type === 'game')
         .map(item => './' + item.name)
-        .filter(name => name.startsWith(input));
+        .filter(name => name.startsWith(currentArg));
     }
   }
   
@@ -381,6 +464,9 @@ async function loadGame(game: string): Promise<void> {
       break;
     case 'susclicker':
       iframe.src = '/games/susClicker/index.html';
+      break;
+    case 'solar':
+      iframe.src = '/games/solar/index.html';
       break;
     case '':
       break;
@@ -1007,6 +1093,21 @@ function setupKeyHandle() {
       domEvent.preventDefault();
       handleAutocomplete();
       
+    } else if (domEvent.key === 'ArrowLeft') {
+      moveCursorLeft();
+      
+    } else if (domEvent.key === 'ArrowRight') {
+      moveCursorRight();
+      
+    } else if (domEvent.key === 'Home' || (domEvent.ctrlKey && domEvent.key === 'a')) {
+      moveCursorToStart();
+      
+    } else if (domEvent.key === 'End' || (domEvent.ctrlKey && domEvent.key === 'e')) {
+      moveCursorToEnd();
+      
+    } else if (domEvent.key === 'Delete') {
+      deleteCharForward();
+      
     } else if (domEvent.key === 'ArrowUp') {
       if (commandHistory.length === 0) return;
 
@@ -1015,7 +1116,8 @@ function setupKeyHandle() {
       }
 
       commandBuffer = commandHistory[commandHistory.length - currentCommand] || '';
-      term.write('\x1b[2K\x1b[G' + getPrompt() + commandBuffer);
+      cursorIndex = commandBuffer.length;
+      redrawCommandLine();
 
     } else if (domEvent.key === 'ArrowDown') {
       if (commandHistory.length === 0) return;
@@ -1023,27 +1125,26 @@ function setupKeyHandle() {
       if (currentCommand > 0) {
         currentCommand--;
         commandBuffer = currentCommand === 0 ? '' : commandHistory[commandHistory.length - currentCommand];
+      } else {
+        commandBuffer = '';
       }
-
-      term.write('\x1b[2K\x1b[G' + getPrompt() + commandBuffer);
+      
+      cursorIndex = commandBuffer.length;
+      redrawCommandLine();
 
     } else if (domEvent.key === 'Enter') {
       if (commandBuffer.trim() !== '') {
         await processCommand(commandBuffer);
       }
-      commandBuffer = '';
+      clearCommandBuffer();
       currentCommand = 0;
       term.write('\r\n' + getPrompt());
 
     } else if (domEvent.key === 'Backspace') {
-      if (commandBuffer.length > 0) {
-        commandBuffer = commandBuffer.slice(0, -1);
-        term.write('\b \b');
-      }
+      deleteChar();
 
     } else if (printable && key.length === 1) {
-      commandBuffer += key;
-      term.write(key);
+      insertChar(key);
     }
   });
 
@@ -1064,5 +1165,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   setupTerminal();
   setupKeyHandle();
-  
+   
 })
