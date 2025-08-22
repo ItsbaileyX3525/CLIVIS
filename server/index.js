@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import https from 'https';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -197,4 +199,33 @@ app.post('/command', async (req, res) => {
   res.json({ output });
 });
 
-app.listen(port, () => console.log(`Server running on http://localhost:${port}`));
+// Check for SSL certificates
+const sslPath = path.join(__dirname, '../ssl');
+const keyPath = path.join(sslPath, 'key.pem');
+const certPath = path.join(sslPath, 'cert.pem');
+
+let useHttps = false;
+let httpsOptions = {};
+
+try {
+  if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    httpsOptions = {
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath)
+    };
+    useHttps = true;
+    console.log('SSL certificates found, starting HTTPS server...');
+  } else {
+    console.log('SSL certificates not found, starting HTTP server...');
+  }
+} catch (error) {
+  console.log('Error reading SSL certificates, starting HTTP server...', error.message);
+}
+
+if (useHttps) {
+  https.createServer(httpsOptions, app).listen(443, '0.0.0.0', () => {
+    console.log('HTTPS Server running on https://0.0.0.0');
+  });
+} else {
+  app.listen(port, 'localhost', () => console.log(`HTTP Server running on http://localhost:${port}`));
+}
