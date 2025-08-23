@@ -6,18 +6,18 @@ import { Colors, success, error, warning, info, highlight } from './colors.js';
 import { initPython, runPython, isPythonInitialised } from './python.js';
 import { sendCommandToServer } from './serverApi.js';
 import { getCompletions, findCommonPrefix } from './autocomplete.js';
-import { 
-  getCommandLineState, 
-  setCommandBuffer, 
-  clearCommandBuffer, 
-  redrawCommandLine, 
-  insertChar, 
-  deleteChar, 
-  deleteCharForward, 
-  moveCursorLeft, 
-  moveCursorRight, 
-  moveCursorToStart, 
-  moveCursorToEnd 
+import {
+  getCommandLineState,
+  setCommandBuffer,
+  clearCommandBuffer,
+  redrawCommandLine,
+  insertChar,
+  deleteChar,
+  deleteCharForward,
+  moveCursorLeft,
+  moveCursorRight,
+  moveCursorToStart,
+  moveCursorToEnd
 } from './commandLineEditor.js';
 import { loadGame, interruptSleep, sleep } from './gameLoader.js';
 function getPrompt(): string {
@@ -26,12 +26,12 @@ function getPrompt(): string {
   return `${pathColor}${currentPath}${Colors.reset} ${promptColor}$${Colors.reset} `;
 }
 import { createQR } from './qrCode.js';
-import { 
-  MaxwellFrames, 
-  EarthFrames, 
-  KnotFrames, 
-  DonutFrames, 
-  NyanFrames, 
+import {
+  MaxwellFrames,
+  EarthFrames,
+  KnotFrames,
+  DonutFrames,
+  NyanFrames,
   ParrotFrames } from './util/frames.js'
 import { rainbow as lolcats } from './rainbow.js';
 
@@ -44,26 +44,26 @@ let imageAddon: ImageAddon
 function handleAutocomplete(): void {
   const { commandBuffer } = getCommandLineState();
   const completions = getCompletions(commandBuffer, currentPath);
-  
+
   if (completions.length === 0) {
     return;
   }
-  
+
   if (completions.length === 1) {
     const parts = commandBuffer.trim().split(' ');
     const completion = completions[0];
-    
+
     parts[parts.length - 1] = completion;
     const newBuffer = parts.join(' ') + ' ';
-    
+
     term.write('\x1b[2K\x1b[G' + getPrompt() + newBuffer);
     setCommandBuffer(newBuffer);
   } else {
     term.writeln('');
-    
+
     const maxLength = Math.max(...completions.map(c => c.length));
     const columns = Math.floor(80 / (maxLength + 2));
-    
+
     for (let i = 0; i < completions.length; i += columns) {
       const row = completions.slice(i, i + columns);
       const coloredRow = row.map(item => {
@@ -81,11 +81,11 @@ function handleAutocomplete(): void {
       });
       term.writeln(coloredRow.join('  '));
     }
-    
+
     const commonPrefix = findCommonPrefix(completions);
     const parts = commandBuffer.trim().split(' ');
     const lastPart = parts[parts.length - 1];
-    
+
     if (commonPrefix.length > lastPart.length) {
       parts[parts.length - 1] = commonPrefix;
       const newBuffer = parts.join(' ');
@@ -253,7 +253,7 @@ async function processCommand(cmd: string) {
       term.writeln(`${Colors.magenta}  passwdGen${Colors.reset}   - Generate secure passwords (use -h for help)`);
       term.writeln(`\n${info('Try ping to test if the server is working!')}`);
       break;
-    
+
     case 'clear':
       term.clear()
       break;
@@ -286,7 +286,7 @@ async function processCommand(cmd: string) {
           artName = args[0];
         }
 
-        
+
 
         if (!validAscii.includes(artName)) {
             term.writeln(info(`Invalid ASCII art name. Available options are: ${validAscii.join(', ')}.]`));
@@ -352,7 +352,7 @@ async function processCommand(cmd: string) {
           term.writeln(error("Something went wrong, try again!"))
         }
       }
-      
+
       break;
     case 'youtube':
       if (args[0]) {
@@ -486,7 +486,7 @@ async function processCommand(cmd: string) {
           term.writeln(`${Colors.white}${response}${Colors.reset}`);
         } else {
           term.writeln(error(data));
-        }  
+        }
       } else {
         term.writeln(warning('Usage: gpt <your question>'));
       }
@@ -527,11 +527,11 @@ async function processCommand(cmd: string) {
           term.writeln(`${Colors.white}${args.join(' ')}${Colors.reset}`);
         } else {
           term.writeln(warning("Please add some text to echo"));
-        }        
+        }
       }
 
       break;
-    
+
     case 'quote':
       if (args[0] === '-r' || args[0] === '--random') {
         const data = await sendCommandToServer('randomQuote');
@@ -586,6 +586,41 @@ async function processCommand(cmd: string) {
       }
       break;
 
+    case 'count':
+      if (args[0] === '--characters') {
+        if (args[1] === '--spaces') {
+          if (args[2]) {
+            const text = args[2];
+            const letters = text.length;
+            term.writeln(success("Letters: " + String(letters)));
+            break;
+          } else {
+            term.writeln(warning('Usage: count --characters --spaces <text>'));
+            break;
+          }
+        }
+
+        if (args[1]) {
+          const text = args[1];
+          let letters = 0;
+          for (let i = 0; i < text.length; i++) {
+            if (text[i] !== ' ') letters++;
+          }
+          term.writeln(success("Letters: " + String(letters)));
+          break;
+        }
+
+        term.writeln(warning('Usage: count --characters [--spaces] <text>'));
+        break;
+      }
+
+      if (args[0]) {
+        const count = (s: string): number => s.trim().split(/\s+/).length;
+        term.writeln(success("Words: " + String(count(args[0]))));
+      }
+
+      break;
+
     case 'paste':
       if (args[0] === '-r' || args[0] === '--retrieve') {
         if (args[1] && args[1].trim()) {
@@ -601,7 +636,7 @@ async function processCommand(cmd: string) {
         } else {
           term.writeln(warning('Usage: paste -r <paste_id>'));
         }
-      } 
+      }
       else if (args[0] === '-u' || args[0] === '--upload') {
         if (args[1] && args[1].trim()) {
           const data = await sendCommandToServer("pasteUpload", args[1]);
@@ -632,12 +667,12 @@ async function processCommand(cmd: string) {
         term.writeln(`${Colors.green}  -u, --upload${Colors.reset}      Upload your paste`);
         term.writeln(`${Colors.green}  -r, --retrieve${Colors.reset}    Retrieve your paste`);
         term.writeln(`${Colors.green}  -d, --delete${Colors.reset}      Delete your paste`);
-      } 
+      }
       else {
         term.writeln(error("Invalid argument, use paste -h or --help for options"));
       }
       break;
-    
+
     case 'mkdir':
       if (args[0]) {
         const dirName = args[0]
@@ -651,10 +686,10 @@ async function processCommand(cmd: string) {
       }
 
       break;
-  
+
     case 'rmdir':
       if (args[0]) {
-        const dirName = args[0] 
+        const dirName = args[0]
         if (deleteDir(`${currentPath}${dirName}`)) {
           term.writeln(success(`Directory deleted: ${highlight(dirName)}`));
         } else {
@@ -797,7 +832,7 @@ async function processCommand(cmd: string) {
         term.writeln(warning('Usage: python <filename> or python -c "code"'));
       }
 
-      break; 
+      break;
     case 'w3m':
       if (args[0]) {
         const fileName = args[0];
@@ -834,7 +869,7 @@ async function processCommand(cmd: string) {
     case 'cowsay':
       if (args[0]) {
         const data = await sendCommandToServer('cowsay', args[0]);
-        
+
         if (data.includes('failed') || data.includes('Error')) {
           term.writeln(error(data));
         } else {
@@ -845,7 +880,7 @@ async function processCommand(cmd: string) {
 
           for (const line of lines) {
             output += `< ${line.padEnd(width, " ")} >\n`;
-          }  
+          }
 
           output += " " + "-".repeat(width + 2) + "\n";
 
@@ -856,7 +891,7 @@ async function processCommand(cmd: string) {
       }
       break;
 
-    case 'kanye': 
+    case 'kanye':
       const kanyeData = await sendCommandToServer('kanye');
       if (kanyeData.includes('Failed') || kanyeData.includes('failed')) {
         term.writeln(error(kanyeData));
@@ -890,7 +925,7 @@ async function processCommand(cmd: string) {
 
     case '':
       break;
-    
+
     default:
       commandHistory.pop();
       term.writeln(error(`Command not found: ${command}`));
@@ -900,11 +935,11 @@ async function processCommand(cmd: string) {
 
 async function setupTerminal() {
   const termContainer = document.getElementById('terminal') as HTMLElement || null;
-  term.loadAddon(fitAddon); 
+  term.loadAddon(fitAddon);
   term.loadAddon(imageAddon);
   term.open(termContainer);
-  fitAddon.fit(); 
-  
+  fitAddon.fit();
+
   const welcomeBox = `
 \x1b[36m╔═══════════════════════════════════════════════════════════════════════════╗\x1b[0m
 \x1b[36m║\x1b[0m                    \x1b[1m\x1b[32mWelcome to CLIvis Terminal v2.0\x1b[0m                        \x1b[36m║\x1b[0m
@@ -954,22 +989,22 @@ function setupKeyHandle() {
     if (domEvent.key === 'Tab') {
       domEvent.preventDefault();
       handleAutocomplete();
-      
+
     } else if (domEvent.key === 'ArrowLeft') {
       moveCursorLeft(term);
-      
+
     } else if (domEvent.key === 'ArrowRight') {
       moveCursorRight(term);
-      
+
     } else if (domEvent.key === 'Home' || (domEvent.ctrlKey && domEvent.key === 'a')) {
       moveCursorToStart(term, currentPath);
-      
+
     } else if (domEvent.key === 'End' || (domEvent.ctrlKey && domEvent.key === 'e')) {
       moveCursorToEnd(term, currentPath);
-      
+
     } else if (domEvent.key === 'Delete') {
       deleteCharForward(term, getPrompt);
-      
+
     } else if (domEvent.key === 'ArrowUp') {
       if (commandHistory.length === 0) return;
 
@@ -991,7 +1026,7 @@ function setupKeyHandle() {
       } else {
         setCommandBuffer('');
       }
-      
+
       redrawCommandLine(term, getPrompt);
 
     } else if (domEvent.key === 'Enter') {
@@ -1033,7 +1068,7 @@ async function waitForFontLoad(fontFamily: string): Promise<boolean> {
 
 document.addEventListener('DOMContentLoaded', async () => {
   const fontLoaded = await waitForFontLoad('fira-code');
-  
+
   if (!fontLoaded) {
     console.log('Fira Code failed to load, defaulting to monospace, expect some weird stuff to happen :P');
   }
@@ -1047,8 +1082,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   fitAddon = new FitAddon();
   imageAddon = new ImageAddon();
-  
+
   setupTerminal();
   setupKeyHandle();
-   
+
 })
