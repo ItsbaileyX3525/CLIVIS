@@ -672,7 +672,7 @@ async function setupTerminal() {
   
   const welcomeBox = `
 \x1b[36m╔═══════════════════════════════════════════════════════════════════════════╗\x1b[0m
-\x1b[36m║\x1b[0m                    \x1b[1m\x1b[32mWelcome to CLIvis Terminal v1.0\x1b[0m                        \x1b[36m║\x1b[0m
+\x1b[36m║\x1b[0m                    \x1b[1m\x1b[32mWelcome to CLIvis Terminal v2.0\x1b[0m                        \x1b[36m║\x1b[0m
 \x1b[36m╠═══════════════════════════════════════════════════════════════════════════╣\x1b[0m
 \x1b[36m║\x1b[0m \x1b[1m\x1b[35mEssential Commands:\x1b[0m                                                       \x1b[36m║\x1b[0m
 \x1b[36m║\x1b[0m   \x1b[32mhelp\x1b[0m        - See what this thing can do                                \x1b[36m║\x1b[0m

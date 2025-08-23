@@ -63,8 +63,6 @@ More to be added!
         - [x] Cowsay
         - [x] Kanye.rest
         - [x] Generic joke API
-        ~~- [ ] Translations~~ (Google bein a beotch)
-        - [ ] Additional APIs
 - **Directory Management**
     - [x] Base directory support
     - [x] Directory exploration
@@ -77,7 +75,6 @@ More to be added!
     - [x] Visual enhancements and graphical output for supported commands
     - [x] Make the terminal amazing with colours
 - **Games**
-    - [ ] Terminal-based games (future addition)
     - [x] GUI-based games (maybe)
 
 ## Building locally
