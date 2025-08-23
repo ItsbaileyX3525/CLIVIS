@@ -25,6 +25,7 @@ function getPrompt(): string {
   const promptColor = Colors.brightGreen;
   return `${pathColor}${currentPath}${Colors.reset} ${promptColor}$${Colors.reset} `;
 }
+import { createQR } from './qrCode.js';
 
 let term: Terminal
 let fitAddon: FitAddon
@@ -592,6 +593,21 @@ async function processCommand(cmd: string) {
         }
       } else {
         term.writeln(warning('Usage: w3m <image_filename>'));
+      }
+
+      break;
+
+    case 'qr':
+      if (args[0]) {
+        let data = await createQR(args[0])
+
+        if (data.startsWith('success')) {
+          data = data.slice(7);
+
+          await loadImage(data);
+        } else {
+          term.writeln(error(data));
+        }
       }
 
       break;

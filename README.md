@@ -45,11 +45,36 @@ The following features are planned or under consideration:
 
 - **Utilities**
     - [x] Youtube video downloader
-    - [ ] Weather API integration
     - [ ] QR code generator
-    - [ ] ASCII art generator
+    - [ ] Base64 encoder/decoder
+    - [ ] Password generator
+    - [ ] Text case converter (uppercase, lowercase, title case)
+    - [ ] Word/character counter
+    - [ ] Simple calculator
 - **Terminal Enhancements**
     - [x] Add Control + V support
+    - [ ] Copy terminal output to clipboard
+- **Text Manipulation**
+    - [ ] ROT13 encoder/decoder
+    - [ ] Text to binary/binary to text converter
+    - [ ] Simple text encryption/decryption
+- **Expanded APIs!**
+    - [ ] Weather API integration
+    - [ ] ASCII art generator
+    - [ ] Lolcats
+    - [ ] Random fact generator
+    - [ ] Currency converter
+    - [ ] Meme generator
+- **Mini Games**
+    - [ ] Number guessing game
+    - [ ] Simple quiz game
+    - [ ] Rock paper scissors
+- **File System Enhancements**
+    - [ ] Basic text editor
+    - [ ] Syntax highlighting for code files (maybe)
+- **Visual Enhancements**
+    - [ ] Loading spinners/animations
+    - [ ] Font size controls
 
 More to be added!
 
