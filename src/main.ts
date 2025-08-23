@@ -57,7 +57,7 @@ function handleAutocomplete(): void {
     for (let i = 0; i < completions.length; i += columns) {
       const row = completions.slice(i, i + columns);
       const coloredRow = row.map(item => {
-        if (['help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 'joke', 'elot'].includes(item)) {
+        if (['help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 'joke', 'elot', 'youtube', 'qr', 'base64', 'passwdGen'].includes(item)) {
           return `${Colors.green}${item.padEnd(maxLength)}${Colors.reset}`;
         } else if (item.startsWith('-')) {
           return `${Colors.yellow}${item.padEnd(maxLength)}${Colors.reset}`;
@@ -94,6 +94,16 @@ let currentPath = '/';
 
 let currentCommand: number = 0
 let commandHistory: string[] = []
+
+function base64ED(input: string, ED?: 'encode' | 'decode'): string {
+  if (ED === 'encode') {
+    return btoa(unescape(encodeURIComponent(input)));
+  } else if (ED === 'decode') {
+    return decodeURIComponent(escape(atob(input)));
+  } else {
+    return "FAILURE";
+  }
+}
 
 async function loadImage(url: string) {
   const resp = await fetch(url);
@@ -214,7 +224,10 @@ async function processCommand(cmd: string) {
       term.writeln(`${Colors.yellow}  joke${Colors.reset}        - Get a random joke`);
       term.writeln(`${Colors.yellow}  elot${Colors.reset}        - Display Elot image`);
       term.writeln(`${Colors.magenta}  ./game${Colors.reset}      - Run executable games`);
-      term.writeln(`${Colors.magenta} youtube${Colors.reset}      - Download youtube videso from an url`)
+      term.writeln(`${Colors.magenta}  youtube${Colors.reset}     - Download youtube videos from an url`);
+      term.writeln(`${Colors.magenta}  qr${Colors.reset}          - Turn text into a qr code!`);
+      term.writeln(`${Colors.magenta}  base64${Colors.reset}      - Encode/decode base64 text (use -h for help)`);
+      term.writeln(`${Colors.magenta}  passwdGen${Colors.reset}   - Generate secure passwords (use -h for help)`);
       term.writeln(`\n${info('Try ping to test if the server is working!')}`);
       break;
     
@@ -255,6 +268,102 @@ async function processCommand(cmd: string) {
         }
       }
 
+      break;
+
+    case 'passwdGen':
+      if (args[0] === '-h' || args[0] === '--help') {
+        term.writeln(`${Colors.bright}${Colors.cyan}Password Generator Commands:${Colors.reset}`);
+        term.writeln(`${Colors.green}  --length<N>${Colors.reset}       Set password length (default: 16)`);
+        term.writeln(`${Colors.green}  --noSpecial${Colors.reset}       Exclude special characters`);
+        term.writeln(`${Colors.green}  --noUpper${Colors.reset}         Exclude uppercase letters`);
+        term.writeln(`${Colors.green}  --noLower${Colors.reset}         Exclude lowercase letters`);
+        term.writeln(`${Colors.green}  --noNumbers${Colors.reset}       Exclude numbers`);
+        term.writeln(`${Colors.green}  -h, --help${Colors.reset}        Show this help message`);
+        term.writeln(`${Colors.yellow}Examples:${Colors.reset}`);
+        term.writeln(`  passwdGen --length24`);
+        term.writeln(`  passwdGen --noSpecial --length12`);
+        break;
+      }
+
+      //https://api.genratr.com/?length=16&uppercase&lowercase&special&numbers
+      let url: string
+      let special: string = "&special";
+      let length: string = "length=16";
+      let upper: string = "&uppercase";
+      let lower: string = "&lowercase";
+      let numbers: string = "&numbers";
+      let checker: number = 0
+
+      for (let e of args) {
+        if (e === '--noSpecial') {
+          special = "";
+          checker ++;
+        } else if (e === '--noUpper') {
+          upper = "";
+          checker ++;
+        } else if (e === '--noLower') {
+          lower = "";
+          checker ++;
+        } else if (e === '--noNumbers') {
+          numbers = "";
+          checker ++;
+        } else if (e.startsWith('--length')) {
+          length = `length=${e.slice(8)}`
+        }
+      }
+
+      if (checker >= 4) {
+        term.writeln(error("Cannot generate password: all character types excluded"));
+        term.writeln(info("Use passwdGen -h for help"));
+        break;
+      }
+
+      url = `https://api.genratr.com/?${length}${upper}${lower}${special}${numbers}`
+
+      if (url) {
+        term.writeln(info('Generating password...'));
+        const data = await sendCommandToServer(command, url)
+
+        if (data.startsWith('success')) {
+          let response = data.slice(7)
+          term.writeln(`${Colors.bright}${Colors.green}Generated Password:${Colors.reset} ${Colors.bright}${Colors.yellow}${response}${Colors.reset}`);
+        } else {
+          term.writeln(error("Failed to generate password"));
+        }
+      }
+
+      break;
+
+    case 'base64':
+      if (args[0] === '-e' || args[0] === '--encode') {
+        if (args[1]) {
+          const response = base64ED(args[1], 'encode');
+          term.writeln(`${Colors.bright}${Colors.green}Encoded:${Colors.reset} ${Colors.white}${response}${Colors.reset}`);
+        } else {
+          term.writeln(warning('Usage: base64 -e <text_to_encode>'));
+        }
+      } else if (args[0] === '-d' || args[0] === '--decode') {
+        if (args[1]) {
+          try {
+            const response = base64ED(args[1], 'decode');
+            term.writeln(`${Colors.bright}${Colors.green}Decoded:${Colors.reset} ${Colors.white}${response}${Colors.reset}`);
+          } catch (err) {
+            term.writeln(error('Invalid base64 string'));
+          }
+        } else {
+          term.writeln(warning('Usage: base64 -d <base64_to_decode>'));
+        }
+      } else if (args[0] === '-h' || args[0] === '--help') {
+        term.writeln(`${Colors.bright}${Colors.cyan}Base64 Commands:${Colors.reset}`);
+        term.writeln(`${Colors.green}  -e, --encode${Colors.reset}      Encode text to base64`);
+        term.writeln(`${Colors.green}  -d, --decode${Colors.reset}      Decode base64 to text`);
+        term.writeln(`${Colors.green}  -h, --help${Colors.reset}        Show this help message`);
+        term.writeln(`${Colors.yellow}Examples:${Colors.reset}`);
+        term.writeln(`  base64 -e "Hello World"`);
+        term.writeln(`  base64 -d "SGVsbG8gV29ybGQ="`);
+      } else {
+        term.writeln(warning("Please provide valid options, use base64 -h for help"));
+      }
       break;
 
     case 'gpt':

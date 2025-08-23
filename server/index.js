@@ -271,6 +271,22 @@ app.post('/command', async (req, res) => {
       output = "success"+data.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
       break;
 
+    case 'passwdGen':
+      console.log(args[0])
+      response = await fetch(args[0]);
+
+      if (!response || !response.ok) {
+        console.log(response)
+        output = "failure";
+        break;
+      }
+
+      data = await response.json()
+
+      output = "success"+data.password;
+
+      break;
+
     case 'youtube':
       try {
         let url = args[0];

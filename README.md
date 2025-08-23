@@ -45,9 +45,9 @@ The following features are planned or under consideration:
 
 - **Utilities**
     - [x] Youtube video downloader
-    - [ ] QR code generator
-    - [ ] Base64 encoder/decoder
-    - [ ] Password generator
+    - [x] QR code generator
+    - [x] Base64 encoder/decoder
+    - [x] Password generator
     - [ ] Text case converter (uppercase, lowercase, title case)
     - [ ] Word/character counter
     - [ ] Simple calculator
@@ -70,7 +70,7 @@ The following features are planned or under consideration:
     - [ ] Simple quiz game
     - [ ] Rock paper scissors
 - **File System Enhancements**
-    - [ ] Basic text editor
+    - [ ] Basic text editor (maybe)
     - [ ] Syntax highlighting for code files (maybe)
 - **Visual Enhancements**
     - [ ] Loading spinners/animations
