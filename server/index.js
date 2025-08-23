@@ -3,17 +3,95 @@ import cors from 'cors';
 import path from 'path';
 import https from 'https';
 import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
+import YTDlpWrap from 'yt-dlp-wrap';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const ytDlpWrap = new YTDlpWrap.default();
+
+ytDlpWrap.setBinaryPath(path.join(__dirname, 'yt-dlp_linux'));
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 const port = 3001;
 
+const downloadedVideos = new Map();
+
 app.use(express.static(path.join(__dirname, '../dist')));
+
+function generateRandomFilename(extension = '.mp4') {
+  return crypto.randomBytes(16).toString('hex') + extension;
+}
+
+function cleanupVideo(filename) {
+  const videoInfo = downloadedVideos.get(filename);
+  if (videoInfo) {
+    try {
+      if (fs.existsSync(videoInfo.filePath)) {
+        fs.unlinkSync(videoInfo.filePath);
+        console.log(`Deleted video: ${filename}`);
+      }
+    } catch (error) {
+      console.error(`Error deleting video ${filename}:`, error);
+    }
+    
+    if (videoInfo.deleteTimer) {
+      clearTimeout(videoInfo.deleteTimer);
+    }
+    
+    downloadedVideos.delete(filename);
+  }
+}
+
+app.get('/download/:filename', (req, res) => {
+  const filename = req.params.filename;
+  const videoInfo = downloadedVideos.get(filename);
+  
+  if (!videoInfo || !fs.existsSync(videoInfo.filePath)) {
+    return res.status(404).json({ error: 'Video not found' });
+  }
+  
+  res.setHeader('Content-Type', 'video/mp4');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  
+  const fileStream = fs.createReadStream(videoInfo.filePath);
+  fileStream.pipe(res);
+  
+  fileStream.on('end', () => {
+    console.log(`Video ${filename} downloaded, scheduling cleanup...`);
+    setTimeout(() => cleanupVideo(filename), 5000); // 5 second delay to ensure download completes
+  });
+  
+  fileStream.on('error', (error) => {
+    console.error(`Error streaming video ${filename}:`, error);
+    res.status(500).json({ error: 'Error downloading video' });
+  });
+});
+
+app.get('/videos', (req, res) => {
+  const videos = Array.from(downloadedVideos.entries()).map(([filename, info]) => ({
+    filename,
+    downloadedAt: info.downloadedAt,
+    fileExists: fs.existsSync(info.filePath)
+  }));
+  
+  res.json({ videos });
+});
+
+app.delete('/download/:filename', (req, res) => {
+  const filename = req.params.filename;
+  
+  if (!downloadedVideos.has(filename)) {
+    return res.status(404).json({ error: 'Video not found' });
+  }
+  
+  cleanupVideo(filename);
+  res.json({ message: `Video ${filename} deleted successfully` });
+});
 
 async function sendRequestRustful(url, method = "GET", ...args) {
   method = method.toUpperCase();
@@ -191,6 +269,62 @@ app.post('/command', async (req, res) => {
       data = await response.json()
       data = data.choices[0].message.content
       output = "success"+data.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+      break;
+
+    case 'youtube':
+      try {
+        let url = args[0];
+        if (!url.startsWith('https://')) {
+          url = "https://youtube.com/watch?v=" + url;
+        }
+
+        let videoTitle = generateRandomFilename().replace('.mp4', '');
+
+
+        const randomSuffix = crypto.randomBytes(4).toString('hex');
+        const filename = `${videoTitle}_${randomSuffix}.mp4`;
+        const filePath = path.join(__dirname, "videos", filename);
+
+        await new Promise((resolve, reject) => {
+          const child = ytDlpWrap.exec([
+            url,
+            '-f',
+            'best',
+            '-o',
+            filePath,
+          ]);
+
+          child.on('error', (error) => {
+            console.error('Download error:', error);
+            output = `Error downloading video: ${error.message}`;
+            reject(error);
+          });
+
+          child.on('close', (code) => {
+            if (code === 0) {
+              resolve();
+            } else {
+              console.log('Download failed with code:', code);
+              reject(new Error(`yt-dlp exited with code ${code}`));
+            }
+          });
+        });
+
+        const deleteTimer = setTimeout(() => {
+          cleanupVideo(filename);
+        }, 15 * 60 * 1000);
+
+        downloadedVideos.set(filename, {
+          filePath,
+          downloadedAt: new Date(),
+          deleteTimer
+        });
+        
+        output = [`successDownload finished! File download should start instantly! If not you can download from: https://clivis.baileygamesand.codes/download/${filename} Auto-deletion in 15 minutes or after download.`, filename];
+      } catch (error) {
+        console.error('YouTube download error:', error);
+        output = `Error processing YouTube request: ${error.message}`;
+      }
       break;
     default:
       output = `Unknown command: ${command} :<`;

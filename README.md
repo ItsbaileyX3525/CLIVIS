@@ -41,6 +41,20 @@ Display images and videos (maybe) inside the CLI!
 
 The following features are planned or under consideration:
 
+### Ship 2
+
+- **Utilities**
+    - [x] Youtube video downloader
+    - [ ] Weather API integration
+    - [ ] QR code generator
+    - [ ] ASCII art generator
+- **Terminal Enhancements**
+    - [x] Add Control + V support
+
+More to be added!
+
+### Ship 1
+
 - **API Requests**
     - [x] Personal APIs
         - [x] Rustful

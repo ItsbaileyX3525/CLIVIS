@@ -213,6 +213,7 @@ async function processCommand(cmd: string) {
       term.writeln(`${Colors.yellow}  joke${Colors.reset}        - Get a random joke`);
       term.writeln(`${Colors.yellow}  elot${Colors.reset}        - Display Elot image`);
       term.writeln(`${Colors.magenta}  ./game${Colors.reset}      - Run executable games`);
+      term.writeln(`${Colors.magenta} youtube${Colors.reset}      - Download youtube videso from an url`)
       term.writeln(`\n${info('Try ping to test if the server is working!')}`);
       break;
     
@@ -229,10 +230,36 @@ async function processCommand(cmd: string) {
       }
       break;
 
+    case 'youtube':
+      if (args[0]) {
+        term.writeln(info("Download should've started!"))
+        const data = await sendCommandToServer(command, args[0])
+
+        if (data[0].startsWith('success')) {
+          const response = data[0].slice(7);
+          term.writeln(success(response))
+
+          //Create blob thing for insta-download
+          const fileResponse = await fetch(window.location.protocol+"//"+window.location.hostname+":"+window.location.port+"/download/"+data[1]);
+          const blob = await fileResponse.blob();
+
+          const objectUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a') as HTMLAnchorElement;
+          a.href = objectUrl
+          a.download = data[1]
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a)
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+
+      break;
+
     case 'gpt':
       if (args[0]) {
         term.writeln(info('Thinking...'));
-        const data = await sendCommandToServer(command, args[0] + " No emojis");
+        const data = await sendCommandToServer(command, args[0] + " No emojis, if my request seems inappropriate then respond 'Not answering that one boss!'");
         if (data.startsWith('success')) {
           const response = data.slice(7);
           term.writeln(`${Colors.bright}${Colors.cyan}AI Response:${Colors.reset}`);
@@ -674,6 +701,12 @@ async function setupTerminal() {
 function setupKeyHandle() {
   term.onKey(async ({ key, domEvent }) => {
     const printable = !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
+
+    if (domEvent.ctrlKey && domEvent.key === 'v') { //Catch this overal
+      let clipboard: string = await navigator.clipboard.readText();
+      insertChar(clipboard, term, getPrompt)
+      return;
+    }
 
     if (domEvent.key === 'Tab') {
       domEvent.preventDefault();
