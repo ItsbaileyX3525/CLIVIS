@@ -324,6 +324,36 @@ async function processCommand(cmd: string) {
         term.clear();
         showNextFrame();
         break;
+
+    case 'meme':
+      if (true) {
+        const data = await sendCommandToServer(command)
+
+        if (data.startsWith('success')) {
+          const response = data.slice(7);
+
+          await loadImage(response);
+        } else {
+          term.writeln(error("Something went wrong, try again!"))
+        }
+      }
+
+      break;
+
+    case 'fact':
+      if (true) {
+        const data = await sendCommandToServer(command);
+
+        if (data.startsWith('success')) {
+          const response = data.slice(7)
+
+          term.writeln(info(response))
+        } else {
+          term.writeln(error("Something went wrong, try again!"))
+        }
+      }
+      
+      break;
     case 'youtube':
       if (args[0]) {
         term.writeln(info("Download should've started!"))

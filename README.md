@@ -60,11 +60,10 @@ The following features are planned or under consideration:
     - [ ] Simple text encryption/decryption
 - **Expanded APIs!**
     - [ ] Weather API integration
-    - [ ] ASCII art generator
-    - [ ] Lolcats
-    - [ ] Random fact generator
+    - [x] Lolcats
+    - [x] Random fact generator
     - [ ] Currency converter
-    - [ ] Meme generator
+    - [x] Meme generator
 - **Mini Games**
     - [ ] Number guessing game
     - [ ] Simple quiz game
@@ -75,6 +74,10 @@ The following features are planned or under consideration:
 - **Visual Enhancements**
     - [ ] Loading spinners/animations
     - [ ] Font size controls
+
+- **Potential cool idea**
+    - [ ] I could perchance introduce sessions and allow people to communicate with session codes. It would look a little something like 
+    `Welcome to CLIvis, your session code is: ABC123` and then you can do something like `message "ABC123" "YOOO wsg!!"`.
 
 More to be added!
 

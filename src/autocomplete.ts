@@ -4,7 +4,7 @@ import { Colors } from './colors.js';
 const commands = [
   'help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 
   'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 
-  'joke', 'elot'
+  'joke', 'elot', 'meme', 'fact', 'ascii', 'passwdGen', 'base64',
 ];
 
 const commandOptions: { [key: string]: string[] } = {
@@ -12,6 +12,9 @@ const commandOptions: { [key: string]: string[] } = {
   'paste': ['-r', '--retrieve', '-u', '--upload', '-d', '--delete', '-h', '--help'],
   'python': ['-c'],
   'cd': ['..', '/'],
+  'ascii': ['-r', '--rainbow'],
+  'passwdGen': ['--help', '-h', '--noSpecial', '--noUpper', '--noLower', '--noNumbers', '--length'],
+  'base64': ['-e', '--encode', '-d', '--decode'],
   'gpt': [],
   'cowsay': [],
   'kanye': [],

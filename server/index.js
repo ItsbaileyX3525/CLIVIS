@@ -234,6 +234,34 @@ app.post('/command', async (req, res) => {
 
       break;
 
+    case 'meme':
+      response = await fetch("https://meme-api.com/gimme")
+
+      if (!response || !response.ok) {
+        output = "Meme API failed";
+        break;
+      }
+
+      data = await response.json();
+
+      output = "success"+data.url;
+      
+      break;
+
+    case 'fact':
+      response = await fetch("https://api.flik.host/fact")
+
+      if (!response || !response.ok) {
+        output = "Failure";
+        break;
+      }
+
+      data = await response.json();
+
+      output = "success"+data.fact;
+
+      break;
+
     case 'joke':
       response = await fetch("https://api.flik.host/joke")
 
