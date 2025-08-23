@@ -53,7 +53,7 @@ The following features are planned or under consideration:
     - [ ] Simple calculator
 - **Terminal Enhancements**
     - [x] Add Control + V support
-    - [ ] Copy terminal output to clipboard
+    - [x] Copy terminal output to clipboard
 - **Text Manipulation**
     - [ ] ROT13 encoder/decoder
     - [ ] Text to binary/binary to text converter

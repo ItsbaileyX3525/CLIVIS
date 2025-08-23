@@ -19,13 +19,23 @@ import {
   moveCursorToStart, 
   moveCursorToEnd 
 } from './commandLineEditor.js';
-import { loadGame, interruptSleep } from './gameLoader.js';
+import { loadGame, interruptSleep, sleep } from './gameLoader.js';
 function getPrompt(): string {
   const pathColor = Colors.brightBlue;
   const promptColor = Colors.brightGreen;
   return `${pathColor}${currentPath}${Colors.reset} ${promptColor}$${Colors.reset} `;
 }
 import { createQR } from './qrCode.js';
+import { 
+  MaxwellFrames, 
+  EarthFrames, 
+  KnotFrames, 
+  DonutFrames, 
+  NyanFrames, 
+  ParrotFrames } from './util/frames.js'
+import { rainbow as lolcats } from './rainbow.js';
+
+lolcats.setSeed(Math.round(Math.random() * 1000));
 
 let term: Terminal
 let fitAddon: FitAddon
@@ -86,6 +96,19 @@ function handleAutocomplete(): void {
     }
   }
 }
+
+var asciiArts: Record<string, string[]> = {
+    "donut" : DonutFrames,
+    "parrot" : ParrotFrames,
+    "nyan" : NyanFrames,
+    "knot" : KnotFrames,
+    "earth" : EarthFrames,
+    "maxwell" : MaxwellFrames,
+}
+
+const validAscii: string[] = ["nyan", "donut", "parrot", "knot", "earth", "maxwell"];
+
+let commandBreak: boolean = false;
 
 let currentPath = '/';
 
@@ -244,6 +267,63 @@ async function processCommand(cmd: string) {
       }
       break;
 
+    case 'ascii':
+        if(!args[0]) {
+            term.writeln(error(`Please provide an ASCII art name`));
+            term.writeln(info(`Available ASCII art names: ${validAscii.join(', ')}]`));
+            return;
+        }
+
+        let rainbow: boolean = false;
+        let artName: string = ""
+
+        if (args[0] === '-r' || args[0] === '--rainbow') {
+          rainbow = true
+          artName = args[1]
+          term.writeln(warning("Rainbow can be very intensive so be careful"))
+          await sleep(2400);
+        } else {
+          artName = args[0];
+        }
+
+        
+
+        if (!validAscii.includes(artName)) {
+            term.writeln(info(`Invalid ASCII art name. Available options are: ${validAscii.join(', ')}.]`));
+            return;
+        }
+
+        const frames = asciiArts[artName];
+        let iteration = 0;
+        let frameIndex = 0;
+
+        function showNextFrame() {
+            if (commandBreak || iteration >= 1000) {
+                commandBreak = false;
+                return;
+            }
+
+            term.clear();
+            const frame = frames[frameIndex];
+            if (rainbow) {
+              term.writeln(String(lolcats.rainbowOnly(frame)) + "\nUse 'Control + C' to stop the animation.");
+            } else {
+              term.writeln(`${frame}\nUse 'Control + C' to stop the animation.`);
+            }
+
+            frameIndex++;
+
+            if (frameIndex >= frames.length) {
+                frameIndex = 0;
+                iteration++;
+            }
+
+            setTimeout(showNextFrame, 60);
+        }
+
+        term.clear();
+        showNextFrame();
+        break;
     case 'youtube':
       if (args[0]) {
         term.writeln(info("Download should've started!"))
@@ -830,6 +910,14 @@ function setupKeyHandle() {
     if (domEvent.ctrlKey && domEvent.key === 'v') { //Catch this overal
       let clipboard: string = await navigator.clipboard.readText();
       insertChar(clipboard, term, getPrompt)
+      return;
+    }
+
+    if (domEvent.ctrlKey && domEvent.key === 'c') { //Catch this overal
+      commandBreak = true;
+      setTimeout(() => {
+          commandBreak = false;
+      }, 50);
       return;
     }
 
