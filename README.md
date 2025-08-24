@@ -49,15 +49,15 @@ The following features are planned or under consideration:
     - [x] Base64 encoder/decoder
     - [x] Password generator
     - [ ] Text case converter (uppercase, lowercase, title case)
-    - [ ] Word/character counter
-    - [ ] Simple calculator
+    - [x] Word/character counter
+    - [x] Simple calculator
 - **Terminal Enhancements**
     - [x] Add Control + V support
     - [x] Copy terminal output to clipboard
 - **Text Manipulation**
     - [ ] ROT13 encoder/decoder
     - [ ] Text to binary/binary to text converter
-    - [ ] Simple text encryption/decryption
+    - ~~[ ] Simple text encryption/decryption~~ - Replaced by encoders
 - **Expanded APIs!**
     - [ ] Weather API integration
     - [x] Lolcats
@@ -65,7 +65,7 @@ The following features are planned or under consideration:
     - [ ] Currency converter
     - [x] Meme generator
 - **Mini Games**
-    - [ ] Number guessing game
+    - [x] Number guessing game
     - [ ] Simple quiz game
     - [ ] Rock paper scissors
 - **File System Enhancements**

@@ -67,7 +67,7 @@ function handleAutocomplete(): void {
     for (let i = 0; i < completions.length; i += columns) {
       const row = completions.slice(i, i + columns);
       const coloredRow = row.map(item => {
-        if (['help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 'joke', 'elot', 'youtube', 'qr', 'base64', 'passwdGen'].includes(item)) {
+        if (['help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 'joke', 'elot', 'ascii', 'meme', 'fact', 'math', 'count', 'youtube', 'qr', 'base64', 'passwdGen', 'guess'].includes(item)) {
           return `${Colors.green}${item.padEnd(maxLength)}${Colors.reset}`;
         } else if (item.startsWith('-')) {
           return `${Colors.yellow}${item.padEnd(maxLength)}${Colors.reset}`;
@@ -152,6 +152,114 @@ async function loadImage(url: string) {
   const iip = `\x1b]1337;File=inline=1;size=${size}:${base64Data}\x07`;
 
   term.writeln(iip);
+}
+
+let gameInputResolver: ((input: string) => void) | null = null;
+let isInGame: boolean = false;
+let gameInputBuffer: string = '';
+
+function getGameAwarePrompt(): string {
+  if (isInGame) {
+    return '';
+  }
+  return getPrompt();
+}
+
+function waitForInput(): Promise<string> {
+  return new Promise((resolve) => {
+    gameInputResolver = resolve;
+    isInGame = true;
+    gameInputBuffer = '';
+  });
+}
+
+function handleGameInput(): boolean {
+  if (isInGame && gameInputResolver) {
+    gameInputResolver(gameInputBuffer);
+    gameInputResolver = null;
+    isInGame = false;
+    gameInputBuffer = '';
+    return true;
+  }
+  return false;
+}
+
+async function playGuessingGame(): Promise<void> {
+  const number: number = Math.floor(Math.random() * 1000);
+  let attempts = 0;
+  let guessed = false;
+
+  term.writeln("Welcome to the ultimate guessing game!");
+  term.writeln("I'm thinking of a number between 0 and 999...");
+  term.writeln("Type your guess and press Enter (or 'quit' to exit):\n");
+
+  while (!guessed && !commandBreak) {
+    term.write(`${Colors.brightCyan}Guess #${attempts + 1}:${Colors.reset} `);
+    
+    try {
+      const input = await waitForInput();
+      
+      if (input.toLowerCase() === 'quit') {
+        term.writeln("\n🚪 Thanks for playing! The number was " + number);
+        term.write(getPrompt());
+        return;
+      }
+
+      const guess = parseInt(input.trim(), 10);
+      attempts++;
+
+      if (isNaN(guess)) {
+        term.writeln(`${Colors.red}Please enter a valid number!${Colors.reset}\n`);
+        continue;
+      }
+
+      if (guess < 0 || guess > 999) {
+        term.writeln(`${Colors.yellow}Please enter a number between 0 and 999!${Colors.reset}\n`);
+        continue;
+      }
+
+      if (guess === number) {
+        term.writeln(`${Colors.bright}${Colors.green}Congratulations! You guessed it in ${attempts} attempts!${Colors.reset}`);
+        if (attempts === 1) {
+          term.writeln(`${Colors.bright}${Colors.yellow}FIRST TRY! You're amazing!${Colors.reset}`);
+        } else if (attempts <= 5) {
+          term.writeln(`${Colors.bright}${Colors.cyan}Great job! That was really quick!${Colors.reset}`);
+        } else if (attempts <= 10) {
+          term.writeln(`${Colors.bright}${Colors.blue}Well done!${Colors.reset}`);
+        }
+        guessed = true;
+      } else if (guess < number) {
+        const diff = number - guess;
+        if (diff <= 10) {
+          term.writeln(`${Colors.yellow}Very close! Try higher...${Colors.reset}\n`);
+        } else if (diff <= 50) {
+          term.writeln(`${Colors.cyan}Higher! You're getting warmer...${Colors.reset}\n`);
+        } else {
+          term.writeln(`${Colors.blue}Too low! Go much higher...${Colors.reset}\n`);
+        }
+      } else {
+        const diff = guess - number;
+        if (diff <= 10) {
+          term.writeln(`${Colors.yellow}Very close! Try lower...${Colors.reset}\n`);
+        } else if (diff <= 50) {
+          term.writeln(`${Colors.cyan}Lower! You're getting warmer...${Colors.reset}\n`);
+        } else {
+          term.writeln(`${Colors.blue}Too high! Go much lower...${Colors.reset}\n`);
+        }
+      }
+    } catch (error) {
+      term.writeln(`${Colors.red}Game interrupted${Colors.reset}`);
+      term.write(getPrompt());
+      return;
+    }
+  }
+
+  if (commandBreak) {
+    term.writeln(`\nGame interrupted! The number was ${number}`);
+    commandBreak = false;
+  }
+  
+  term.write(getPrompt());
 }
 
 async function processCommand(cmd: string) {
@@ -246,11 +354,17 @@ async function processCommand(cmd: string) {
       term.writeln(`${Colors.yellow}  kanye${Colors.reset}       - Get Kanye wisdom`);
       term.writeln(`${Colors.yellow}  joke${Colors.reset}        - Get a random joke`);
       term.writeln(`${Colors.yellow}  elot${Colors.reset}        - Display Elot image`);
+      term.writeln(`${Colors.yellow}  ascii${Colors.reset}       - Display ASCII art animations`);
+      term.writeln(`${Colors.yellow}  meme${Colors.reset}        - Get a random meme`);
+      term.writeln(`${Colors.yellow}  fact${Colors.reset}        - Get a random fact`);
+      term.writeln(`${Colors.cyan}  math${Colors.reset}         - Perform basic calculations`);
+      term.writeln(`${Colors.cyan}  count${Colors.reset}        - Count words or characters in text`);
       term.writeln(`${Colors.magenta}  ./game${Colors.reset}      - Run executable games`);
       term.writeln(`${Colors.magenta}  youtube${Colors.reset}     - Download youtube videos from an url`);
       term.writeln(`${Colors.magenta}  qr${Colors.reset}          - Turn text into a qr code!`);
       term.writeln(`${Colors.magenta}  base64${Colors.reset}      - Encode/decode base64 text (use -h for help)`);
       term.writeln(`${Colors.magenta}  passwdGen${Colors.reset}   - Generate secure passwords (use -h for help)`);
+      term.writeln(`${Colors.bright}${Colors.red}  guess${Colors.reset}       - Play the interactive number guessing game!`);
       term.writeln(`\n${info('Try ping to test if the server is working!')}`);
       break;
 
@@ -270,7 +384,7 @@ async function processCommand(cmd: string) {
     case 'ascii':
         if(!args[0]) {
             term.writeln(error(`Please provide an ASCII art name`));
-            term.writeln(info(`Available ASCII art names: ${validAscii.join(', ')}]`));
+            term.writeln(info(`Available ASCII art names: ${validAscii.join(', ')}`));
             return;
         }
 
@@ -289,7 +403,7 @@ async function processCommand(cmd: string) {
 
 
         if (!validAscii.includes(artName)) {
-            term.writeln(info(`Invalid ASCII art name. Available options are: ${validAscii.join(', ')}.]`));
+            term.writeln(error(`Invalid ASCII art name. Available options are: ${validAscii.join(', ')}`));
             return;
         }
 
@@ -326,31 +440,27 @@ async function processCommand(cmd: string) {
         break;
 
     case 'meme':
-      if (true) {
-        const data = await sendCommandToServer(command)
+      const memeData = await sendCommandToServer(command)
 
-        if (data.startsWith('success')) {
-          const response = data.slice(7);
+      if (memeData.startsWith('success')) {
+        const response = memeData.slice(7);
 
-          await loadImage(response);
-        } else {
-          term.writeln(error("Something went wrong, try again!"))
-        }
+        await loadImage(response);
+      } else {
+        term.writeln(error("Something went wrong, try again!"))
       }
 
       break;
 
     case 'fact':
-      if (true) {
-        const data = await sendCommandToServer(command);
+      const factData = await sendCommandToServer(command);
 
-        if (data.startsWith('success')) {
-          const response = data.slice(7)
+      if (factData.startsWith('success')) {
+        const response = factData.slice(7)
 
-          term.writeln(info(response))
-        } else {
-          term.writeln(error("Something went wrong, try again!"))
-        }
+        term.writeln(info(response))
+      } else {
+        term.writeln(error("Something went wrong, try again!"))
       }
 
       break;
@@ -376,6 +486,8 @@ async function processCommand(cmd: string) {
           document.body.removeChild(a)
           URL.revokeObjectURL(objectUrl);
         }
+      } else {
+        term.writeln(warning('Usage: youtube <video_url>'));
       }
 
       break;
@@ -586,6 +698,65 @@ async function processCommand(cmd: string) {
       }
       break;
 
+    case 'math':
+      if (args.length === 0) {
+        term.writeln(warning('Usage: math <number1> <operator> <number2> [<operator> <number3>...]'));
+        term.writeln(info('Example: math 5 + 3 * 2'));
+        break;
+      }
+
+      let total: number = 0
+      let operand: string = "+"
+      let validOperands: string[] = [
+        "+", "-", "/", "*", '%'
+      ]
+      for (let e of args) {
+        if (validOperands.includes(e)){
+          operand = e;
+          continue;
+        }
+        let num = parseInt(e, 10)
+        if (!isNaN(num)) {
+          switch (operand) {
+            case '+':
+              total += num;
+              break;
+            case '*':
+              total *= num;
+              break;
+            case '/':
+              if (num === 0) {
+                term.writeln(warning("Skipping division by zero"));
+                continue;
+              }
+              total /= num;
+              break;
+            case '-':
+              total -= num;
+              break;
+            case '%':
+              total %= num;
+              break;
+            default:
+              term.writeln(error(`Unknown operator: ${operand}`));
+              break;
+          }
+          continue;
+        }
+
+        //Probably a space
+        continue;
+      }
+
+      term.writeln(String(total));
+
+      break;
+
+    case '':
+
+
+    break;
+
     case 'count':
       if (args[0] === '--characters') {
         if (args[1] === '--spaces') {
@@ -617,6 +788,8 @@ async function processCommand(cmd: string) {
       if (args[0]) {
         const count = (s: string): number => s.trim().split(/\s+/).length;
         term.writeln(success("Words: " + String(count(args[0]))));
+      } else {
+        term.writeln(warning('Usage: count <text> or count --characters <text>'));
       }
 
       break;
@@ -862,6 +1035,8 @@ async function processCommand(cmd: string) {
         } else {
           term.writeln(error(data));
         }
+      } else {
+        term.writeln(warning('Usage: qr <text_to_encode>'));
       }
 
       break;
@@ -923,7 +1098,8 @@ async function processCommand(cmd: string) {
 
       break;
 
-    case '':
+    case 'guess':
+      await playGuessingGame();
       break;
 
     default:
@@ -974,7 +1150,7 @@ function setupKeyHandle() {
 
     if (domEvent.ctrlKey && domEvent.key === 'v') { //Catch this overal
       let clipboard: string = await navigator.clipboard.readText();
-      insertChar(clipboard, term, getPrompt)
+      insertChar(clipboard, term, getGameAwarePrompt)
       return;
     }
 
@@ -988,24 +1164,38 @@ function setupKeyHandle() {
 
     if (domEvent.key === 'Tab') {
       domEvent.preventDefault();
-      handleAutocomplete();
+      if (!isInGame) {
+        handleAutocomplete();
+      }
 
     } else if (domEvent.key === 'ArrowLeft') {
-      moveCursorLeft(term);
+      if (!isInGame) {
+        moveCursorLeft(term);
+      }
 
     } else if (domEvent.key === 'ArrowRight') {
-      moveCursorRight(term);
+      if (!isInGame) {
+        moveCursorRight(term);
+      }
 
     } else if (domEvent.key === 'Home' || (domEvent.ctrlKey && domEvent.key === 'a')) {
-      moveCursorToStart(term, currentPath);
+      if (!isInGame) {
+        moveCursorToStart(term, currentPath);
+      }
 
     } else if (domEvent.key === 'End' || (domEvent.ctrlKey && domEvent.key === 'e')) {
-      moveCursorToEnd(term, currentPath);
+      if (!isInGame) {
+        moveCursorToEnd(term, currentPath);
+      }
 
     } else if (domEvent.key === 'Delete') {
-      deleteCharForward(term, getPrompt);
+      if (!isInGame) {
+        deleteCharForward(term, getGameAwarePrompt);
+      }
 
     } else if (domEvent.key === 'ArrowUp') {
+      if (isInGame) return;
+      
       if (commandHistory.length === 0) return;
 
       if (currentCommand < commandHistory.length) {
@@ -1014,9 +1204,11 @@ function setupKeyHandle() {
 
       const newBuffer = commandHistory[commandHistory.length - currentCommand] || '';
       setCommandBuffer(newBuffer);
-      redrawCommandLine(term, getPrompt);
+      redrawCommandLine(term, getGameAwarePrompt);
 
     } else if (domEvent.key === 'ArrowDown') {
+      if (isInGame) return;
+      
       if (commandHistory.length === 0) return;
 
       if (currentCommand > 0) {
@@ -1027,10 +1219,16 @@ function setupKeyHandle() {
         setCommandBuffer('');
       }
 
-      redrawCommandLine(term, getPrompt);
+      redrawCommandLine(term, getGameAwarePrompt);
 
     } else if (domEvent.key === 'Enter') {
       const { commandBuffer } = getCommandLineState();
+      
+      if (isInGame && handleGameInput()) {
+        term.write('\r\n');
+        return;
+      }
+      
       if (commandBuffer.trim() !== '') {
         await processCommand(commandBuffer);
       }
@@ -1039,10 +1237,22 @@ function setupKeyHandle() {
       term.write('\r\n' + getPrompt());
 
     } else if (domEvent.key === 'Backspace') {
-      deleteChar(term, getPrompt);
+      if (isInGame) {
+        if (gameInputBuffer.length > 0) {
+          gameInputBuffer = gameInputBuffer.slice(0, -1);
+          term.write('\b \b'); // Move back, write space, move back again
+        }
+      } else {
+        deleteChar(term, getGameAwarePrompt);
+      }
 
     } else if (printable && key.length === 1) {
-      insertChar(key, term, getPrompt);
+      if (isInGame) {
+        gameInputBuffer += key;
+        term.write(key);
+      } else {
+        insertChar(key, term, getGameAwarePrompt);
+      }
     }
   });
 

@@ -4,7 +4,7 @@ import { Colors } from './colors.js';
 const commands = [
   'help', 'clear', 'ls', 'cd', 'mkdir', 'rmdir', 'touch', 'cat', 'echo', 
   'python', 'w3m', 'gpt', 'ping', 'quote', 'paste', 'cowsay', 'kanye', 
-  'joke', 'elot', 'meme', 'fact', 'ascii', 'passwdGen', 'base64',
+  'joke', 'elot', 'meme', 'fact', 'ascii', 'passwdGen', 'base64', 'math', 'guess'
 ];
 
 const commandOptions: { [key: string]: string[] } = {
