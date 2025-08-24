@@ -184,6 +184,91 @@ function handleGameInput(): boolean {
   return false;
 }
 
+async function playRockPaperScissors(): Promise<void> {
+  const states = ["rock", "paper", "scissors"];
+  const hand = states[Math.floor(Math.random() * states.length)];
+
+  term.writeln("Welcome to rock paper scissors!");
+  term.writeln("I've already picked my choice, now you go! (or 'quit' to exit):\n");
+
+  let finished = false;
+
+  while (!finished && !commandBreak) {
+    term.write(`${Colors.brightCyan}Your move:${Colors.reset} `);
+    try {
+      const input = await waitForInput();
+
+      if (input.toLowerCase().trim() === 'quit') {
+        term.writeln("\nI knew you didn't have what it takes!");
+        term.writeln(`I chose ${hand} btw.`);
+        term.write(getPrompt());
+        return;
+      }
+
+      const choice = input.toLowerCase().trim();
+
+      if (!states.includes(choice)) {
+        term.writeln(error("That is not a valid option..."));
+        term.writeln(info("The valid options are: rock, paper and scissors."));
+        continue;
+      }
+
+      // preserve all custom outputs from original
+      switch (hand) {
+        case 'rock':
+          if (choice === 'scissors') {
+            term.writeln("HAHAHA YOU LOSE!");
+            finished = true;
+          } else if (choice === 'rock') {
+            term.writeln("Well I guess we drew...");
+            finished = true;
+          } else if (choice === 'paper') {
+            term.writeln("Cheater.");
+            finished = true;
+          }
+          break;
+
+        case 'scissors':
+          if (choice === 'scissors') {
+            term.writeln("Dang, a draw.");
+            finished = true;
+          } else if (choice === 'rock') {
+            term.writeln("NAH HACKER GET OUT!");
+            finished = true;
+          } else if (choice === 'paper') {
+            term.writeln("EZ get gud!");
+            finished = true;
+          }
+          break;
+
+        case 'paper':
+          if (choice === 'scissors') {
+            term.writeln("GG!");
+            finished = true;
+          } else if (choice === 'rock') {
+            term.writeln("Well played!");
+            finished = true;
+          } else if (choice === 'paper') {
+            term.writeln("A draw! Go again?");
+            finished = true;
+          }
+          break;
+      }
+    } catch (err) {
+      term.writeln(`${Colors.red}Game interrupted${Colors.reset}`);
+      term.write(getPrompt());
+      return;
+    }
+  }
+
+  if (commandBreak) {
+    term.writeln("\nGame interrupted!");
+    commandBreak = false;
+  }
+
+  term.write(getPrompt());
+}
+
 async function playGuessingGame(): Promise<void> {
   const number: number = Math.floor(Math.random() * 1000);
   let attempts = 0;
@@ -199,7 +284,7 @@ async function playGuessingGame(): Promise<void> {
     try {
       const input = await waitForInput();
       
-      if (input.toLowerCase() === 'quit') {
+      if (input.toLowerCase().trim() === 'quit') {
         term.writeln("\n🚪 Thanks for playing! The number was " + number);
         term.write(getPrompt());
         return;
@@ -1101,6 +1186,15 @@ async function processCommand(cmd: string) {
     case 'guess':
       await playGuessingGame();
       break;
+
+    case 'rpc':
+      await playRockPaperScissors();
+      break;
+
+    case 'rockPaperScissors':
+      await playRockPaperScissors();
+      break;
+
 
     default:
       commandHistory.pop();
